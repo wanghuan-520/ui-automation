@@ -1,0 +1,46 @@
+# 系统文件
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 依赖目录
+/node_modules
+/.pnp
+.pnp.js
+
+# 测试相关
+/coverage
+/playwright-report
+/test-results
+/test-cases/*.json
+
+# IDE相关
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+
+# 构建输出
+/dist
+/build
+/.next
+/out
+
+# 日志文件
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# 本地配置文件
+*.local
+
+# 其他
+.cache
+.temp
+*.bak
+*.tmp 
