@@ -1,58 +1,54 @@
-# GodGPT Credits 自动化测试
-
-## 测试用例说明
-
-### 1. 新用户额度测试 (credits.spec.ts)
-测试新用户注册后的初始Credits额度及其稳定性
-- 验证初始额度为320 Credits
-- 验证登出登录后额度保持不变
-- 测试账号: playwright7@teml.net
-
-### 2. Credits消耗测试 (credits.spec.ts)
-测试用户进行对话操作时Credits的消耗情况
-- 验证单次对话消耗10 Credits
-- 验证登出登录后额度保持一致
-- 测试账号: playwright@teml.net
+# GodGPT自动化测试说明
 
 ## 环境要求
-- Node.js >= 14.0.0
-- Playwright 最新稳定版
-- 测试环境: https://godgpt-ui-testnet.aelf.dev/
 
-## 执行方法
+- Python 3.7+
+- Appium Server
+- Android SDK
+- 已安装的GodGPT应用
 
-1. 安装依赖
+## 安装依赖
+
 ```bash
-npm install
-npx playwright install
+pip install -r test-requirements/requirements.txt
 ```
 
-2. 执行测试
+## 运行测试前的准备
+
+1. 确保Appium服务器已启动：
 ```bash
-# 执行所有测试
-npx playwright test
-
-# 执行单个测试文件
-npx playwright test credits.spec.ts
-
-# 执行特定测试用例
-npx playwright test -g "新用户额度测试"
+appium
 ```
 
-3. 查看报告
+2. 确保Android设备已连接并启用USB调试模式：
 ```bash
-npx playwright show-report
+adb devices
 ```
+
+3. 确保GodGPT应用已安装在设备上
+
+## 运行测试
+
+在项目根目录下执行：
+```bash
+python -m pytest tests/test_godgpt_wisdom.py -v
+```
+
+## 测试内容
+
+当前测试用例包含：
+- Today's Wisdom Drop功能的完整流程测试
+  - 验证卡片点击
+  - 验证页面跳转
+  - 验证关键元素显示
+  - 验证交互组件存在
 
 ## 注意事项
-1. 执行测试前确保测试账号状态正确
-2. 每个测试用例执行后会自动退出登录
-3. 测试过程会自动保存截图和视频（仅失败时）
-4. 测试报告位于 test-results 目录
 
-## 测试结果
-测试结果将保存在以下位置：
-- HTML报告: playwright-report/
-- JSON报告: test-results/test-results.json
-- 失败截图: test-results/screenshots/
-- 失败视频: test-results/videos/ 
+1. 测试前请确保设备ID在`test_godgpt_wisdom.py`中正确配置
+2. 测试使用`noReset`模式，保持应用数据不被清除
+3. 如果测试失败，会自动保存截图到`error_screenshot.png`
+
+## 调试提示
+
+如果遇到元素定位问题，可以使用Appium Inspector工具来获取正确的元素定位信息。 
