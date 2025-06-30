@@ -20,7 +20,8 @@
 # IDE相关
 .idea/
 .vscode/
-.cursor/
+.cursor/*
+!.cursor/rules/
 *.swp
 *.swo
 
