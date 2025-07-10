@@ -16,6 +16,7 @@
 /playwright-report
 /test-results
 /test-cases/*.json
+/test-cases/data/
 
 # IDE相关
 .idea/
