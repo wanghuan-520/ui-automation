@@ -1,0 +1,138 @@
+# Aevatar 测试数据配置文件
+# 数据驱动测试 - 支持正常和异常场景
+
+# 环境配置
+environment:
+  base_url: "https://aevatar-station-ui-staging.aevatar.ai"
+  login_url: "https://aevatar-station-ui-staging.aevatar.ai"
+  dashboard_url: "https://aevatar-station-ui-staging.aevatar.ai/dashboard/workflows"
+  screenshot_dir: "test-screenshots"
+  timeout: 10000
+  slow_mo: 2000
+
+# 浏览器配置
+browser:
+  headless: false
+  viewport:
+    width: 1280
+    height: 720
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# 登录场景测试数据
+login_scenarios:
+  # 正常场景
+  - id: "valid_login"
+    description: "正常登录 - 有效的邮箱和密码"
+    email: "aevatarwh1@teml.net"
+    password: "Wh520520!"
+    expected_result: "success"
+    expected_url_contains: ["redirect", "dashboard"]
+    tags: ["smoke", "positive"]
+  
+  # 异常场景 - 错误密码
+  - id: "invalid_password"
+    description: "异常登录 - 错误的密码"
+    email: "aevatarwh1@teml.net"
+    password: "WrongPassword123!"
+    expected_result: "error"
+    expected_error_keywords: ["password", "incorrect", "wrong", "密码", "错误"]
+    tags: ["negative", "security"]
+  
+  # 异常场景 - 错误邮箱格式
+  - id: "invalid_email_format"
+    description: "异常登录 - 无效的邮箱格式"
+    email: "invalid-email"
+    password: "Wh520520!"
+    expected_result: "error"
+    expected_error_keywords: ["email", "invalid", "format", "邮箱", "格式"]
+    tags: ["negative", "validation"]
+  
+  # 异常场景 - 不存在的账号
+  - id: "non_existent_account"
+    description: "异常登录 - 不存在的账号"
+    email: "nonexistent@example.com"
+    password: "SomePassword123!"
+    expected_result: "error"
+    expected_error_keywords: ["not found", "does not exist", "账号", "不存在"]
+    tags: ["negative", "security"]
+  
+  # 异常场景 - 空邮箱
+  - id: "empty_email"
+    description: "异常登录 - 空邮箱"
+    email: ""
+    password: "Wh520520!"
+    expected_result: "error"
+    expected_error_keywords: ["required", "empty", "必填", "不能为空"]
+    tags: ["negative", "validation"]
+  
+  # 异常场景 - 空密码
+  - id: "empty_password"
+    description: "异常登录 - 空密码"
+    email: "aevatarwh1@teml.net"
+    password: ""
+    expected_result: "error"
+    expected_error_keywords: ["required", "empty", "必填", "不能为空"]
+    tags: ["negative", "validation"]
+  
+  # 异常场景 - 邮箱和密码都为空
+  - id: "empty_credentials"
+    description: "异常登录 - 邮箱和密码都为空"
+    email: ""
+    password: ""
+    expected_result: "error"
+    expected_error_keywords: ["required", "empty", "必填", "不能为空"]
+    tags: ["negative", "validation"]
+
+# Workflow测试数据
+workflow_scenarios:
+  - id: "basic_workflow"
+    description: "基础workflow创建和运行"
+    login_credential: "valid_login"  # 引用 login_scenarios 中的ID
+    agents:
+      - type: "InputGAgent"
+        config:
+          memberName: "test"
+          input: "中国美食推荐"
+    expected_result: "success"
+    tags: ["integration", "workflow"]
+  
+  - id: "workflow_without_config"
+    description: "未配置必填字段的workflow"
+    login_credential: "valid_login"
+    agents:
+      - type: "InputGAgent"
+        config:
+          memberName: ""  # 空字段
+          input: ""       # 空字段
+    expected_result: "error"
+    expected_error_keywords: ["validation", "required", "配置", "必填"]
+    tags: ["negative", "workflow"]
+
+# 选择器配置（用于页面元素定位）
+selectors:
+  login:
+    email_input:
+      - 'input[type="email"]'
+      - 'input[name="email"]'
+      - 'input[placeholder*="email" i]'
+      - 'input[placeholder*="邮箱" i]'
+      - 'input[placeholder*="Email" i]'
+      - 'input[data-testid*="email" i]'
+      - 'input[id*="email" i]'
+    password_input:
+      - 'input[type="password"]'
+    submit_button:
+      - 'button[type="submit"]'
+    error_message:
+      - '[class*="error"]'
+      - '[class*="Error"]'
+      - '[role="alert"]'
+      - 'text=/error/i'
+  
+  workflow:
+    new_workflow_button: 'button:has-text("New Workflow")'
+    run_button: 'button:has-text("Run")'
+    agent_input: "text=InputGAgent"
+    execution_log_button: 'button:has-text("Execution log")'
+    error_message: 'text=/Validation error|Schema validation failed|error/i'
+

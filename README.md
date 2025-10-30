@@ -1,6 +1,11 @@
-# GodGPT 自动化测试
+# UI 自动化测试框架
 
-本项目包含 GodGPT 的自动化测试用例，使用 Playwright 框架实现。
+本项目包含多个产品的自动化测试用例，使用 Playwright 和 pytest 框架实现。
+
+## 项目概览
+
+- **GodGPT** - 使用 Playwright (TypeScript)
+- **Aevatar** - 使用 pytest + Playwright (Python) 🆕
 
 ## 环境要求
 
@@ -299,4 +304,186 @@ npm run test:godgpt-v1.15.0:debug
 
 ## 联系方式
 
-如有问题请联系GodGPT测试团队。 
+如有问题请联系GodGPT测试团队。
+
+---
+
+# Aevatar 自动化测试框架 🆕
+
+## 概述
+
+Aevatar 测试框架是一个现代化的、数据驱动的 Python 测试框架，基于 pytest 和 Playwright。
+
+### 特性
+
+✅ **数据驱动测试** - 测试数据与代码分离  
+✅ **参数化测试** - 自动生成多个测试场景  
+✅ **正常+异常场景** - 全面的测试覆盖  
+✅ **模块化架构** - 清晰的代码结构  
+✅ **完善的文档** - 快速上手指南  
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+# 安装 Python 依赖
+pip install -r requirements-pytest.txt
+```
+
+### 2. 运行测试
+
+```bash
+# 使用便捷脚本
+python run_aevatar_tests.py --test-file test_login.py -m smoke
+
+# 或使用 pytest 直接运行
+pytest tests/aevatar/ -v
+```
+
+### 3. 查看报告
+
+```bash
+# 生成 HTML 报告
+python run_aevatar_tests.py --html
+
+# 打开报告
+open reports/aevatar-report.html
+```
+
+## 文档
+
+详细文档位于 `tests/aevatar/` 目录：
+
+- 📖 **[README.md](tests/aevatar/README.md)** - 完整使用文档
+- 🚀 **[QUICKSTART.md](tests/aevatar/QUICKSTART.md)** - 5分钟快速开始
+- 🔄 **[MIGRATION_GUIDE.md](tests/aevatar/MIGRATION_GUIDE.md)** - 迁移指南
+- 📊 **[OPTIMIZATION_SUMMARY.md](tests/aevatar/OPTIMIZATION_SUMMARY.md)** - 优化总结
+
+## 测试场景
+
+### 登录测试（7个场景）
+- ✅ 正常登录
+- ❌ 错误密码
+- ❌ 无效邮箱格式
+- ❌ 不存在的账号
+- ❌ 空邮箱
+- ❌ 空密码
+- ❌ 空凭证
+
+### Workflow测试（2个场景）
+- ✅ 基础workflow创建和运行
+- ❌ 未配置必填字段的workflow
+
+## 常用命令
+
+```bash
+# 运行所有测试
+python run_aevatar_tests.py
+
+# 只运行登录测试
+python run_aevatar_tests.py --test-file test_login.py
+
+# 只运行冒烟测试
+python run_aevatar_tests.py -m smoke
+
+# 只运行正向测试
+python run_aevatar_tests.py -m positive
+
+# 只运行负向测试
+python run_aevatar_tests.py -m negative
+
+# 并行执行
+python run_aevatar_tests.py --parallel
+
+# 生成报告
+python run_aevatar_tests.py --html --json
+```
+
+## 添加新场景
+
+只需在 `test-data/aevatar_test_data.yaml` 中添加数据：
+
+```yaml
+login_scenarios:
+  - id: "new_scenario"
+    description: "新的测试场景"
+    email: "test@example.com"
+    password: "password123"
+    expected_result: "success"
+    tags: ["smoke", "positive"]
+```
+
+无需修改代码，测试框架会自动发现并运行新场景！
+
+## 架构优势
+
+### 数据与逻辑分离
+```
+测试逻辑 (Python) ←→ 测试数据 (YAML)
+```
+
+### 模块化设计
+```
+tests/aevatar/
+├── conftest.py      (Fixtures)
+├── utils.py         (工具类)
+├── test_login.py    (登录测试)
+└── test_workflow.py (Workflow测试)
+```
+
+### 高效开发
+- 添加新场景：2-5分钟 ⚡
+- 修改配置：1分钟 ⚡
+- 问题定位：快速精准 ⚡
+
+## 技术栈
+
+- **Python 3.x** - 编程语言
+- **pytest** - 测试框架
+- **Playwright** - 浏览器自动化
+- **PyYAML** - 配置管理
+- **pytest-html** - 报告生成
+
+## 项目结构
+
+```
+tests/aevatar/
+├── README.md               # 详细文档
+├── QUICKSTART.md           # 快速开始
+├── MIGRATION_GUIDE.md      # 迁移指南
+├── OPTIMIZATION_SUMMARY.md # 优化总结
+├── conftest.py             # pytest配置
+├── utils.py                # 工具类
+├── test_login.py           # 登录测试
+└── test_workflow.py        # Workflow测试
+
+test-data/
+└── aevatar_test_data.yaml  # 测试数据配置
+
+test-screenshots/           # 测试截图
+reports/                    # 测试报告
+logs/                       # 测试日志
+```
+
+## 贡献指南
+
+1. 保持每个文件在 400 行以内
+2. 所有注释使用中文
+3. 遵循 PEP 8 代码规范
+4. 添加新功能时更新文档
+
+## 问题排查
+
+### 浏览器无法启动
+检查 Chrome 路径是否正确，可在 `conftest.py` 中修改。
+
+### 元素无法找到
+在 YAML 的 `selectors` 部分添加更多备用选择器。
+
+### 测试超时
+调整 YAML 中的 `timeout` 和 `slow_mo` 配置。
+
+## 联系方式
+
+如有问题，请查看文档或联系团队。 

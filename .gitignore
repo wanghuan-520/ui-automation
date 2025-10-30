@@ -18,6 +18,34 @@
 /test-cases/*.json
 /test-cases/data/
 
+# 测试截图（不提交到远程）
+test-screenshots/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+
+# Allure报告（不提交到远程）
+allure-results/
+allure-results-smoke/
+allure-report/
+allure-report-smoke/
+
+# Pytest缓存
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 测试报告
+reports/
+*.html
+pytest.log
+logs/
+
 # IDE相关
 .idea/
 .vscode/

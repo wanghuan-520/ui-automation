@@ -1,0 +1,43 @@
+# aevatar.ai 登录测试 - pytest 依赖包
+# 使用方法: pip install -r requirements-pytest.txt
+
+# 核心测试框架
+pytest>=7.4.0
+pytest-playwright>=0.4.0
+
+# 测试增强插件
+pytest-html>=3.2.0          # HTML测试报告
+pytest-xdist>=3.3.0         # 并行测试执行
+pytest-cov>=4.1.0           # 代码覆盖率
+pytest-mock>=3.11.0         # Mock功能增强
+pytest-timeout>=2.1.0       # 测试超时控制
+pytest-rerunfailures>=12.0  # 失败重试
+
+# 浏览器自动化
+playwright>=1.40.0
+
+# 日志和报告
+pytest-json-report>=1.5.0   # JSON格式报告
+pytest-metadata>=3.0.0      # 测试元数据
+
+# 数据处理
+pytest-csv>=3.0.0           # CSV数据驱动测试
+pytest-datadir>=1.4.1       # 测试数据目录管理
+pyyaml>=6.0                 # YAML配置文件解析
+
+# 开发工具
+pytest-sugar>=0.9.7         # 美化测试输出
+pytest-clarity>=1.0.1       # 清晰的断言失败信息
+pytest-picked>=0.4.6        # 只运行修改相关的测试
+
+# 性能和监控
+pytest-benchmark>=4.0.0     # 性能基准测试
+pytest-profiling>=1.7.0     # 性能分析
+
+# Allure测试报告
+allure-pytest>=2.15.0       # Allure测试报告（原生支持）
+
+# 可选依赖 (根据需要安装)
+# pytest-bdd>=6.1.0         # BDD行为驱动开发
+# pytest-django>=4.5.0      # Django集成测试
+# pytest-flask>=1.2.0       # Flask集成测试

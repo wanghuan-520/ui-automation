@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestHelpers } from './utils/test-helpers';
+import { TestHelpers } from '../utils/test-helpers';
 
 // 测试新用户注册后的初始额度
 test('新用户额度测试', async ({ page }) => {
@@ -59,4 +59,4 @@ test('Credits消耗测试', async ({ page }) => {
   
   // 执行登出操作
   await TestHelpers.logout(page);
-}); 
+});
