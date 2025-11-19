@@ -1,0 +1,116 @@
+{
+  "valid_users": [
+    {
+      "email": "haylee@test.com",
+      "password": "Wh520520!",
+      "description": "正常测试用户账号"
+    }
+  ],
+  "invalid_emails": [
+    {
+      "email": "invalid-email",
+      "expected_error": "邮箱格式不正确"
+    },
+    {
+      "email": "test@",
+      "expected_error": "邮箱格式不正确"
+    },
+    {
+      "email": "@domain.com",
+      "expected_error": "邮箱格式不正确"
+    },
+    {
+      "email": "test @domain.com",
+      "expected_error": "邮箱格式不正确"
+    },
+    {
+      "email": "",
+      "expected_error": "请输入邮箱"
+    }
+  ],
+  "invalid_passwords": [
+    {
+      "email": "haylee@test.com",
+      "password": "WrongPassword123!",
+      "expected_error": "密码错误"
+    },
+    {
+      "email": "haylee@test.com",
+      "password": "",
+      "expected_error": "请输入密码"
+    }
+  ],
+  "unregistered_users": [
+    {
+      "email": "nonexistent@test.com",
+      "password": "AnyPassword123!",
+      "expected_error": "用户不存在"
+    },
+    {
+      "email": "notregistered@example.com",
+      "password": "TestPass456!",
+      "expected_error": "用户不存在"
+    }
+  ],
+  "boundary_passwords": [
+    {
+      "description": "单字符密码",
+      "password": "a"
+    },
+    {
+      "description": "超长密码",
+      "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "description": "特殊字符密码",
+      "password": "!@#$%^&*()_+-=[]{}|;:',.<>?/`~"
+    },
+    {
+      "description": "包含空格的密码",
+      "password": "password with spaces"
+    },
+    {
+      "description": "中文字符密码",
+      "password": "密码测试123"
+    },
+    {
+      "description": "Emoji密码",
+      "password": "Pass🔒Word123"
+    }
+  ],
+  "security_test_data": [
+    {
+      "type": "SQL注入",
+      "email": "admin' OR '1'='1",
+      "password": "' OR '1'='1"
+    },
+    {
+      "type": "SQL注入",
+      "email": "'; DROP TABLE users--",
+      "password": "password"
+    },
+    {
+      "type": "XSS攻击",
+      "email": "<script>alert('XSS')</script>",
+      "password": "password"
+    },
+    {
+      "type": "XSS攻击",
+      "email": "test@test.com",
+      "password": "<img src=x onerror=alert('XSS')>"
+    }
+  ],
+  "case_sensitivity_tests": [
+    {
+      "email": "HAYLEE@TEST.COM",
+      "password": "Wh520520!",
+      "description": "全大写邮箱"
+    },
+    {
+      "email": "Haylee@Test.com",
+      "password": "Wh520520!",
+      "description": "混合大小写邮箱"
+    }
+  ]
+}
+

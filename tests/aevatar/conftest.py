@@ -15,7 +15,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from utils import TestDataLoader
+from aevatar_utils import TestDataLoader
 
 # 配置日志
 logging.basicConfig(
@@ -147,7 +147,7 @@ async def login_helper(browser_context, environment_config, screenshot_helper):
     登录辅助fixture
     提供通用登录功能（返回async函数）
     """
-    from utils import SelectorHelper, TestDataLoader
+    from aevatar_utils import SelectorHelper, TestDataLoader
     
     async def perform_login(email: str, password: str):
         """

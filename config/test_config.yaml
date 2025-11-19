@@ -1,0 +1,80 @@
+# UI 自动化测试配置文件
+test:
+  base_url: "http://localhost:5173"
+  environment: "localhost"
+  retry_count: 2
+  implicit_wait: 10
+
+browser:
+  headless: false  # 非Headless模式，可看到浏览器操作
+  slow_mo: 500     # 减慢操作速度（毫秒），便于观察
+  timeout: 30000
+  viewport:
+    width: 1920
+    height: 1080
+
+# 环境配置
+environments:
+  testnet:
+    base_url: "https://godgpt-ui-testnet.aelf.dev/"
+    description: "GodGPT 测试环境"
+  mainnet:
+    base_url: "https://godgpt.aelf.com/"
+    description: "GodGPT 生产环境"
+
+# GodGPT 页面配置
+pages:
+  landing:
+    url: "/"
+    timeout: 30000
+    elements:
+      load_indicator: "text=Continue with Email"
+  email_login:
+    url: "/email-login"
+    timeout: 30000
+    elements:
+      load_indicator: "input[type='password']"
+  main:
+    url: "/"
+    timeout: 30000
+    elements:
+      load_indicator: "text=Annual"
+
+# 测试数据配置
+test_data:
+  users:
+    valid_user:
+      email: "409744790@qq.com"
+      password: "Wh520520!"
+      description: "正常用户账号"
+  data_files:
+    login: "godgpt/test_data/godgpt_login_data.json"
+    conversation: "godgpt/test_data/godgpt_conversation_data.json"
+
+# 等待时间配置（毫秒）
+wait_times:
+  page_load: 5000
+  element_visible: 3000
+  after_click: 1000
+  after_login: 3000
+  network_idle: 2000
+
+# 报告配置
+reports:
+  screenshots_on_failure: true
+  video_recording: true
+  html_report: true
+  allure_report: true
+  report_title: "GodGPT UI Automation Test Report"
+
+# Pytest 标记配置
+markers:
+  smoke: "冒烟测试用例"
+  login: "登录模块测试"
+  main: "主界面功能测试"
+  boundary: "边界条件测试"
+  exception: "异常场景测试"
+  ui: "UI/UX测试"
+  high_priority: "高优先级测试"
+  medium_priority: "中优先级测试"
+  low_priority: "低优先级测试"

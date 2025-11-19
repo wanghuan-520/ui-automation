@@ -1,0 +1,45 @@
+{
+  "normal_messages": [
+    {
+      "message": "Hello, how are you?",
+      "expected_response_type": "greeting"
+    },
+    {
+      "message": "What is the meaning of life?",
+      "expected_response_type": "philosophical"
+    },
+    {
+      "message": "Tell me about tarot cards",
+      "expected_response_type": "informative"
+    }
+  ],
+  "boundary_messages": [
+    {
+      "message": "A",
+      "description": "单字符输入"
+    },
+    {
+      "message": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+      "description": "超长文本输入"
+    }
+  ],
+  "special_characters": [
+    {
+      "message": "你好，世界！",
+      "description": "中文输入"
+    },
+    {
+      "message": "こんにちは",
+      "description": "日文输入"
+    },
+    {
+      "message": "🔮✨🌟💫",
+      "description": "Emoji 输入"
+    },
+    {
+      "message": "<script>alert('test')</script>",
+      "description": "HTML 注入测试"
+    }
+  ]
+}
+

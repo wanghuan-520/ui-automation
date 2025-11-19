@@ -1,0 +1,150 @@
+# Workflow测试数据配置文件
+
+# 基础配置
+dashboard:
+  workflows_url: "/dashboard/workflows"
+  default_timeout: 10000
+  page_load_timeout: 30000
+
+# Agent类型配置
+agent_types:
+  - name: "InputGAgent"
+    description: "输入型Agent"
+    required_fields:
+      - "member_name"
+      - "input"
+  - name: "OutputAgent"
+    description: "输出型Agent"
+    required_fields:
+      - "member_name"
+
+# E2E测试场景配置
+e2e_test_scenarios:
+  # 场景1: 基础创建和运行
+  - scenario_name: "basic_create_and_run"
+    description: "创建一个简单的Workflow并运行"
+    workflow_config:
+      agent_type: "InputGAgent"
+      member_name: "test_basic"
+      input: "中国美食推荐"
+    expected_result: "success"
+    
+  # 场景2: 完整生命周期
+  - scenario_name: "full_lifecycle"
+    description: "完整的创建-运行-删除流程"
+    workflow_config:
+      agent_type: "InputGAgent"
+      member_name: "lifecycle_test"
+      input: "测试生命周期"
+    expected_result: "success"
+    cleanup: true
+    
+  # 场景3: 多Agent组合
+  - scenario_name: "multi_agent"
+    description: "添加多个Agent的复杂Workflow"
+    workflow_config:
+      agents:
+        - type: "InputGAgent"
+          member_name: "input_1"
+          input: "第一个输入"
+        - type: "OutputAgent"
+          member_name: "output_1"
+    expected_result: "success"
+
+# 边界测试数据
+boundary_test_data:
+  # 长名称测试
+  - test_name: "long_name"
+    member_name: "this_is_a_very_long_workflow_name_that_exceeds_normal_length_for_testing_boundary_conditions"
+    input: "测试长名称"
+    
+  # 特殊字符测试
+  - test_name: "special_characters"
+    member_name: "test_!@#$%^&*()"
+    input: "特殊字符测试: <>?:\"{}|"
+    
+  # 空输入测试
+  - test_name: "empty_input"
+    member_name: "test_empty"
+    input: ""
+    expected_error: "输入不能为空"
+    
+  # 中文输入测试
+  - test_name: "chinese_input"
+    member_name: "测试中文"
+    input: "这是一个中文输入测试，包含各种标点符号：，。！？""''【】"
+
+# 性能测试数据
+performance_test_data:
+  - test_name: "large_input"
+    member_name: "perf_large"
+    input: "这是一个很长的输入文本" * 100  # 重复100次
+    expected_time: 5000  # 期望在5秒内完成
+    
+  - test_name: "batch_creation"
+    description: "批量创建多个Workflow"
+    count: 10
+    member_name_prefix: "batch_test_"
+    input: "批量测试输入"
+
+# 错误场景测试数据
+error_test_scenarios:
+  # 缺少必填字段
+  - scenario_name: "missing_required_field"
+    workflow_config:
+      agent_type: "InputGAgent"
+      member_name: "test_missing"
+      # input字段缺失
+    expected_error: "Required field missing"
+    
+  # 无效的Agent类型
+  - scenario_name: "invalid_agent_type"
+    workflow_config:
+      agent_type: "NonExistentAgent"
+      member_name: "test_invalid"
+      input: "测试无效Agent"
+    expected_error: "Agent type not found"
+
+# 工作流状态测试数据
+workflow_status_test:
+  valid_statuses:
+    - "Pending"
+    - "Running"
+    - "Success"
+    - "Failed"
+    - "-"  # 未运行
+  
+  status_transitions:
+    - from: "-"
+      to: "Running"
+      trigger: "run_workflow"
+    - from: "Running"
+      to: "Success"
+      condition: "execution_successful"
+    - from: "Running"
+      to: "Failed"
+      condition: "execution_failed"
+
+# 测试环境配置
+test_environment:
+  login_credentials:
+    email: "haylee@test.com"
+    password: "Wh520520!"
+  
+  timeouts:
+    workflow_creation: 10000
+    workflow_execution: 30000
+    agent_drag: 5000
+    page_navigation: 5000
+  
+  screenshot_config:
+    enabled: true
+    on_failure: true
+    on_success: false
+    directory: "test-screenshots/workflows"
+  
+  cleanup:
+    auto_cleanup: true
+    cleanup_on_failure: false
+    max_test_workflows: 20  # 保留最多20个测试workflow
+
