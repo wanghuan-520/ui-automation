@@ -32,7 +32,7 @@ class TestProfileSettings:
         login_page = LocalhostEmailLoginPage(page)
         login_page.navigate()
         login_page.login_with_email("haylee@test.com", "Wh520520!")
-        login_page.verify_login_success()
+        assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
         
         # 初始化Profile页面对象
         self.profile_page = ProfileSettingsPage(page)
@@ -313,7 +313,7 @@ class TestProfileSettingsIntegration:
         login_page = LocalhostEmailLoginPage(page)
         login_page.navigate()
         login_page.login_with_email("haylee@test.com", "Wh520520!")
-        login_page.verify_login_success()
+        assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
         
         # 初始化Profile页面对象
         self.profile_page = ProfileSettingsPage(page)
@@ -340,4 +340,100 @@ class TestProfileSettingsIntegration:
         
         logger.info(f"用户信息 - 名称: {name}, 邮箱: {email}")
         logger.info("登录到Profile流程集成测试通过")
+
+
+@allure.feature("Profile功能")
+@allure.story("Profile设置 - 回归测试")
+class TestProfileSettingsRegression:
+    """Profile设置回归测试类"""
+    
+    @pytest.fixture(autouse=True)
+    def setup(self, page: Page):
+        """测试前置设置"""
+        self.page = page
+        
+        # 登录（使用staging环境账号）
+        login_page = LocalhostEmailLoginPage(page)
+        login_page.navigate()
+        login_page.login_with_email("aevatarwh1@teml.net", "Wh520520!")
+        assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
+        
+        # 初始化Profile页面对象
+        self.profile_page = ProfileSettingsPage(page)
+        self.profile_page.navigate()
+        
+        logger.info("回归测试前置设置完成")
+    
+    @pytest.mark.regression
+    @pytest.mark.p1
+    @allure.title("回归测试-P1: Profile Name编辑完整流程")
+    @allure.description("验证Profile Name修改 → 保存 → 验证的完整流程")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_profile_name_edit_regression(self):
+        """
+        P1 回归测试: 修改 Profile Name
+        详细验证UI交互和数据持久化
+        """
+        logger.info("=" * 80)
+        logger.info("👤 开始回归测试: 修改 Profile Name [P1]")
+        logger.info("=" * 80)
+        
+        # 验证页面已加载
+        assert self.profile_page.is_loaded(), "Profile页面未加载"
+        logger.info("✅ Profile页面已加载")
+        
+        # 等待页面完全初始化（等待可能的loading状态）
+        self.page.wait_for_timeout(2000)
+        
+        # 步骤1: 获取当前Name
+        logger.info("📋 步骤1: 获取当前Name")
+        original_name = self.profile_page.get_current_name()
+        logger.info(f"✅ 当前Name: {original_name}")
+        
+        # 步骤2: 生成新的随机Name
+        import time
+        import random
+        import string
+        random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        timestamp = str(int(time.time()))[-6:]
+        new_name = f"user_{timestamp}_{random_str}"
+        logger.info(f"🔄 步骤2: 准备更新为: {new_name}")
+        
+        # 步骤3: 更新Name
+        logger.info("✏️ 步骤3: 更新Name字段")
+        success = self.profile_page.update_name(new_name)
+        assert success, f"更新Name失败: {new_name}"
+        logger.info(f"✅ Name已更新为: {new_name}")
+        
+        # 步骤4: 验证更新成功
+        logger.info("🔍 步骤4: 验证Name已更新")
+        # 等待保存完成
+        self.page.wait_for_timeout(2000)
+        
+        # 重新获取Name值
+        updated_name = self.profile_page.get_current_name()
+        logger.info(f"✅ 更新后的Name: {updated_name}")
+        
+        # 验证Name已更新
+        assert updated_name == new_name, \
+            f"Name未正确更新，期望: {new_name}, 实际: {updated_name}"
+        logger.info("✅ Name更新验证通过")
+        
+        # 步骤5: 刷新页面验证数据持久化
+        logger.info("🔄 步骤5: 刷新页面验证数据持久化")
+        self.profile_page.refresh_page()
+        self.page.wait_for_timeout(3000)
+        
+        # 验证页面重新加载后Name依然是新值
+        assert self.profile_page.is_loaded(), "刷新后页面未加载"
+        persisted_name = self.profile_page.get_current_name()
+        logger.info(f"✅ 刷新后的Name: {persisted_name}")
+        
+        assert persisted_name == new_name, \
+            f"刷新后Name未持久化，期望: {new_name}, 实际: {persisted_name}"
+        logger.info("✅ 数据持久化验证通过")
+        
+        logger.info("=" * 80)
+        logger.info("🎉 回归测试完成: Profile Name编辑流程测试通过")
+        logger.info("=" * 80)
 

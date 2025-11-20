@@ -145,22 +145,15 @@ class AevatarLoginPage(BasePage):
         self.page.click(self.LOGIN_BUTTON)
         self.page.wait_for_timeout(1000)
     
-    @allure.step("验证成功登录")
-    def verify_login_success(self):
-        """验证登录成功"""
-        # 等待跳转
-        self.page.wait_for_timeout(3000)
-        # 断言URL包含dashboard或workflows
-        current_url = self.page.url
-        assert "/dashboard" in current_url or "/workflows" in current_url, \
-            f"登录后未跳转到Dashboard。当前URL: {current_url}"
-        allure.attach(current_url, name="Login Success URL", attachment_type=allure.attachment_type.TEXT)
-    
-    @allure.step("验证登录失败")
-    def verify_login_failed(self):
-        """验证登录失败，停留在登录页"""
+    @allure.step("检查是否停留在登录页")
+    def is_on_login_page(self) -> bool:
+        """
+        检查是否仍在登录页面（用于验证登录失败场景）
+        
+        Returns:
+            bool: True表示在登录页，False表示已跳转
+        """
         self.page.wait_for_timeout(2000)
         current_url = self.page.url
-        assert current_url == self.LOGIN_URL or "login" in current_url.lower(), \
-            f"预期停留在登录页，但实际URL: {current_url}"
-        allure.attach(current_url, name="Login Failed URL", attachment_type=allure.attachment_type.TEXT)
+        allure.attach(current_url, name="Current URL", attachment_type=allure.attachment_type.TEXT)
+        return current_url == self.LOGIN_URL or "login" in current_url.lower()

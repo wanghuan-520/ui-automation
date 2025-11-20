@@ -86,6 +86,44 @@ class ConfigurationPage(BasePage):
             logger.error(f"Configuration页面加载失败: {str(e)}")
             return False
     
+    @allure.step("等待页面初始化完成")
+    def wait_for_page_initialization(self, max_wait_seconds: int = 30) -> bool:
+        """
+        等待页面初始化完成（等待Scanning/Initialising状态消失）
+        
+        Args:
+            max_wait_seconds: 最大等待时间（秒）
+            
+        Returns:
+            bool: 是否初始化完成
+        """
+        logger.info(f"等待页面初始化（最多{max_wait_seconds}秒）...")
+        
+        for i in range(max_wait_seconds):
+            self.page.wait_for_timeout(1000)
+            
+            # 检查是否还有Scanning/Initialising文本
+            scanning_elements = self.page.locator('text=/Scanning|Initialising/i')
+            count = scanning_elements.count()
+            
+            if count == 0:
+                logger.info(f"✅ 页面初始化完成（等待了{i+1}秒）")
+                return True
+            
+            # 检查元素是否可见
+            all_hidden = True
+            for j in range(count):
+                if scanning_elements.nth(j).is_visible():
+                    all_hidden = False
+                    break
+            
+            if all_hidden:
+                logger.info(f"✅ 页面初始化完成（等待了{i+1}秒）")
+                return True
+        
+        logger.warning(f"⚠️ 页面初始化超时（等待了{max_wait_seconds}秒）")
+        return False
+    
     @allure.step("切换到 {tab_name} 标签页")
     def switch_to_tab(self, tab_name: str) -> None:
         """

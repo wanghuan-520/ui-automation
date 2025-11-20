@@ -2,6 +2,7 @@ from playwright.sync_api import Page, Locator, expect
 from typing import Optional, List, Dict, Any
 import time
 import json
+import allure
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -138,19 +139,39 @@ class PageUtils:
         except Exception as e:
             logger.error(f"滚动到元素失败: {selector}, 错误: {e}")
     
-    def take_screenshot(self, file_path: str, full_page: bool = True):
+    def take_screenshot(self, file_path: str = None, full_page: bool = True, attach_to_allure: bool = True, step_name: str = "截图"):
         """
-        截取屏幕截图
+        截取屏幕截图并自动附加到Allure报告
         
         Args:
-            file_path: 截图保存路径
+            file_path: 截图保存路径（可选，如果只想附加到Allure可以不提供）
             full_page: 是否截取整个页面
+            attach_to_allure: 是否附加到Allure报告
+            step_name: 步骤名称，用于Allure报告
         """
         try:
-            self.page.screenshot(path=file_path, full_page=full_page)
-            logger.info(f"截图已保存: {file_path}")
+            # 截取截图（以字节形式）
+            screenshot_bytes = self.page.screenshot(full_page=full_page)
+            
+            # 如果提供了文件路径，保存到文件
+            if file_path:
+                with open(file_path, 'wb') as f:
+                    f.write(screenshot_bytes)
+                logger.info(f"截图已保存: {file_path}")
+            
+            # 附加到Allure报告
+            if attach_to_allure:
+                allure.attach(
+                    screenshot_bytes,
+                    name=step_name,
+                    attachment_type=allure.attachment_type.PNG
+                )
+                logger.info(f"截图已附加到Allure报告: {step_name}")
+                
+            return screenshot_bytes
         except Exception as e:
             logger.error(f"截图失败: {e}")
+            return None
     
     def execute_script(self, script: str) -> Any:
         """
@@ -212,4 +233,19 @@ class PageUtils:
             source.drag_to(target)
             logger.info(f"拖拽操作完成: {source_selector} -> {target_selector}")
         except Exception as e:
-            logger.error(f"拖拽操作失败: {e}") 
+            logger.error(f"拖拽操作失败: {e}")
+    
+    def screenshot_step(self, step_name: str, full_page: bool = False):
+        """
+        为当前步骤截图（便捷方法）
+        
+        Args:
+            step_name: 步骤名称
+            full_page: 是否截取整个页面
+        """
+        self.take_screenshot(
+            file_path=None, 
+            full_page=full_page, 
+            attach_to_allure=True, 
+            step_name=step_name
+        ) 

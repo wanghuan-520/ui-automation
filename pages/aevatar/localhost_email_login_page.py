@@ -78,9 +78,11 @@ class LocalhostEmailLoginPage(BasePage):
             email_locator.click()
             email_locator.fill(email)
             
-            # 验证输入
+            # 检查输入值（不使用断言）
             input_value = email_locator.input_value()
-            assert input_value == email, f"邮箱输入验证失败: 期望={email}, 实际={input_value}"
+            if input_value != email:
+                logger.warning(f"邮箱输入值不匹配: 期望={email}, 实际={input_value}")
+                return False
             
             logger.info("邮箱输入成功")
             return True

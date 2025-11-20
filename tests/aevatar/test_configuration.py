@@ -32,7 +32,7 @@ class TestConfiguration:
         login_page = LocalhostEmailLoginPage(page)
         login_page.navigate()
         login_page.login_with_email("haylee@test.com", "Wh520520!")
-        login_page.verify_login_success()
+        assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
         
         # 导航到Configuration页面
         self.config_page = ConfigurationPage(page)
@@ -365,7 +365,7 @@ class TestConfigurationIntegration:
         login_page = LocalhostEmailLoginPage(page)
         login_page.navigate()
         login_page.login_with_email("haylee@test.com", "Wh520520!")
-        login_page.verify_login_success()
+        assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
         
         # 导航到Configuration页面
         self.config_page = ConfigurationPage(page)
@@ -427,4 +427,109 @@ class TestConfigurationIntegration:
             "删除后CROS仍然存在"
         
         logger.info("CROS完整生命周期集成测试通过")
+
+
+@allure.feature("Dashboard功能")
+@allure.story("Configuration管理 - 回归测试")
+class TestConfigurationRegression:
+    """Configuration回归测试类"""
+    
+    @pytest.fixture(autouse=True)
+    def setup(self, page: Page):
+        """测试前置设置"""
+        self.page = page
+        
+        # 登录（使用staging环境的账号）
+        login_page = LocalhostEmailLoginPage(page)
+        login_page.navigate()
+        login_page.login_with_email("aevatarwh1@teml.net", "Wh520520!")
+        assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
+        
+        # 导航到Configuration页面
+        self.config_page = ConfigurationPage(page)
+        self.config_page.navigate()
+        
+        # 等待页面初始化完成
+        assert self.config_page.wait_for_page_initialization(30), "页面初始化超时"
+    
+    @pytest.mark.regression
+    @pytest.mark.p0
+    @pytest.mark.smoke
+    @allure.title("回归测试-P0: CROS Domain添加功能")
+    @allure.description("验证CROS Domain添加功能的完整流程（回归测试）")
+    @allure.severity(allure.severity_level.BLOCKER)
+    def test_cros_add_regression(self):
+        """
+        P0 回归测试: 添加 CROS Domain
+        更详细的UI交互验证
+        """
+        logger.info("开始回归测试: 添加 CROS Domain [P0]")
+        
+        # 生成随机Domain
+        import random
+        import string
+        random_str = ''.join(random.choices(string.ascii_lowercase, k=8))
+        domain = f"https://{random_str}.example.com"
+        
+        # 切换到CROS标签页
+        self.config_page.switch_to_tab("Cros")
+        logger.info("已切换到CROS标签页")
+        
+        # 创建CROS Domain
+        success = self.config_page.create_cros(domain)
+        assert success, f"创建CROS Domain失败: {domain}"
+        logger.info(f"✅ CROS Domain创建成功: {domain}")
+        
+        # 验证Domain已添加到列表
+        assert self.config_page.verify_cros_exists(domain), \
+            f"创建的CROS Domain不在列表中: {domain}"
+        logger.info("✅ 已验证CROS Domain在列表中")
+        
+        # 清理: 删除创建的Domain
+        self.config_page.delete_cros(domain)
+        logger.info("✅ 测试清理完成")
+        
+        logger.info("🎉 CROS Domain添加回归测试通过!")
+    
+    @pytest.mark.regression
+    @pytest.mark.p2
+    @allure.title("回归测试-P2: CROS Domain删除功能")
+    @allure.description("验证CROS Domain删除功能的完整流程（回归测试）")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_cros_delete_regression(self):
+        """
+        P2 回归测试: 删除 CROS Domain
+        包含创建临时数据和删除验证
+        """
+        logger.info("开始回归测试: 删除 CROS Domain [P2]")
+        
+        # 1. 先创建一个临时CROS Domain（确保有数据可删除）
+        import random
+        import string
+        random_str = ''.join(random.choices(string.ascii_lowercase, k=8))
+        temp_domain = f"https://{random_str}.example.com"
+        
+        logger.info(f"🔨 步骤1: 创建临时CROS Domain: {temp_domain}")
+        self.config_page.switch_to_tab("Cros")
+        
+        success = self.config_page.create_cros(temp_domain)
+        assert success, f"创建临时CROS Domain失败: {temp_domain}"
+        logger.info("✅ 临时CROS Domain已创建")
+        
+        # 验证Domain已创建
+        assert self.config_page.verify_cros_exists(temp_domain), \
+            "临时CROS Domain未在列表中"
+        
+        # 2. 删除该Domain
+        logger.info(f"🗑️ 步骤2: 删除CROS Domain: {temp_domain}")
+        success = self.config_page.delete_cros(temp_domain)
+        assert success, f"删除CROS Domain失败: {temp_domain}"
+        logger.info("✅ CROS Domain删除操作完成")
+        
+        # 3. 验证Domain已被删除
+        assert not self.config_page.verify_cros_exists(temp_domain), \
+            f"CROS Domain删除后仍然存在: {temp_domain}"
+        logger.info("✅ 已验证CROS Domain已从列表中移除")
+        
+        logger.info("🎉 CROS Domain删除回归测试通过!")
 

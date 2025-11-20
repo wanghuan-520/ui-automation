@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import sys
 from datetime import datetime
+import allure
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.absolute()
@@ -14,8 +15,8 @@ if str(project_root) not in sys.path:
 
 @pytest.fixture(scope="function")
 def browser(browser_type):
-    """为每个测试函数创建独立的browser实例"""
-    # 使用pytest-playwright的默认配置
+    """为每个测试函数创建独立的browser实例，使用Playwright自带的Chromium"""
+    # 使用Playwright自带的Chromium浏览器（无需本地安装Chrome）
     # 通过命令行参数 --headed --slowmo 500 来控制
     browser = browser_type.launch()
     yield browser
@@ -87,3 +88,4 @@ def setup_test_environment():
     print("\n" + "="*80)
     print("🏁 测试环境清理完成")
     print("="*80 + "\n")
+
