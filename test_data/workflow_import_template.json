@@ -1,0 +1,13 @@
+{
+  "name": "Auto_Imported_Workflow",
+  "nodes": [
+    {
+      "id": "1",
+      "type": "InputGAgent",
+      "position": { "x": 100, "y": 100 },
+      "data": { "label": "Input Node" }
+    }
+  ],
+  "edges": [],
+  "viewport": { "x": 0, "y": 0, "zoom": 1 }
+}

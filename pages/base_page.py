@@ -61,7 +61,7 @@ class BasePage(ABC):
     def refresh_page(self):
         """刷新页面"""
         logger.info("刷新页面")
-        self.page.reload()
+        self.page.reload(wait_until='networkidle')
         self.wait_for_page_load()
     
     def go_back(self):
