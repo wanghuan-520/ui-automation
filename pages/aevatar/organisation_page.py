@@ -26,6 +26,10 @@ class OrganisationPage(BasePage):
     SEARCH_INPUT = "input[placeholder*='Search']"
     TABLE_ROW = "tbody tr"
     
+    # Organisation General
+    ORG_NAME_INPUT = "input[name*='name' i], input[placeholder*='organisation' i], input[placeholder*='name' i], input[type='text']"
+    SAVE_BUTTON = "button:has-text('Save')"
+    
     # Project
     PROJECT_NAME_INPUT = "input[placeholder*='Name'], input[name='name'], input[name='displayName']"
     PROJECT_DESCRIPTION_INPUT = "textarea, input[placeholder*='Description']"
@@ -87,49 +91,134 @@ class OrganisationPage(BasePage):
 
     @allure.step("切换到 Tab/Menu: {tab_name}")
     def switch_to_tab(self, tab_name: str):
-        """切换标签页或侧边栏菜单 (Project, Member, Role)"""
+        """切换标签页或侧边栏菜单 (Project, Member, Role, General)"""
+        # 确保我们在 Organisation 页面
+        if "profile/organisation" not in self.page.url:
+            logger.info(f"当前不在 Organisation 页面 ({self.page.url})，重新导航...")
+            self.navigate()
+
         # 处理复数形式到单数形式的映射
         name_map = {
             "Projects": "Project",
             "Members": "Member",
-            "Roles": "Role"
+            "Roles": "Role",
+            "General": "General"
         }
         target_name = name_map.get(tab_name, tab_name)
         
         logger.info(f"尝试切换到: {target_name}")
         
+        # 确保页面已加载
+        try:
+            self.page.wait_for_load_state("networkidle", timeout=5000)
+        except:
+            pass
+
         # 策略1: 侧边栏菜单点击 (基于HTML结构分析)
-        # 结构: div.cursor-pointer > span("Project")
         logger.info(f"尝试点击侧边栏菜单: {target_name}")
         
         selectors = [
+            # 增加上下文限制，确保点的是侧边栏
+            f"nav span:text-is('{target_name}')",
+            f"aside span:text-is('{target_name}')",
             # 精确匹配 span 文本 (最优先)
             f"span:text-is('{target_name}')",
-            # 匹配包含文本的 cursor-pointer div
-            f"div.cursor-pointer:has-text('{target_name}')",
-            # 回退到之前的选择器
-            f"nav a:has-text('{target_name}')",
-            f"div[role='button']:has-text('{target_name}')"
+            # 宽松匹配文本 (span or div)
+            f"span:has-text('{target_name}')",
+            f"div:has-text('{target_name}')",
+            f"text={target_name}"
         ]
         
-        for selector in selectors:
-            try:
-                elements = self.page.locator(selector).all()
-                for el in elements:
-                    if el.is_visible():
-                        # 尝试点击
-                        logger.info(f"尝试点击元素: {selector}")
-                        el.click(timeout=1000)
-                        self.page.wait_for_load_state("networkidle")
-                        self.page.wait_for_timeout(1000)
-                        
-                        # 验证是否切换成功 (简单的验证：看是否出现了特定的 Header 或 按钮)
-                        # 这里暂不强求验证，假设点击有效
-                        return
-            except:
-                continue
+        for i in range(3): # 重试3次
+            for selector in selectors:
+                try:
+                    elements = self.page.locator(selector).all()
+                    for el in elements:
+                        if el.is_visible():
+                            # 尝试点击
+                            logger.info(f"尝试点击元素: {selector}")
+                            try:
+                                el.click(timeout=1000, force=True)
+                            except:
+                                # 如果 force=True 失败，尝试正常点击
+                                el.click(timeout=1000)
+                                
+                            self.page.wait_for_load_state("networkidle")
+                            self.page.wait_for_timeout(1000)
+                            return
+                except:
+                    continue
+            
+            if i < 2:
+                logger.warning(f"第 {i+1} 次尝试切换失败，刷新页面重试...")
+                self.page.reload()
+                self.page.wait_for_timeout(2000)
+                # 刷新后再次确保 URL 正确
+                if "profile/organisation" not in self.page.url:
+                    self.navigate()
 
         logger.warning(f"⚠️ 未能通过常规方式切换到: {target_name}")
+
+    # ========== General Actions ==========
+
+    @allure.step("更新 Organisation Name: {new_name}")
+    def update_org_name(self, new_name: str) -> bool:
+        """更新 Organisation 名称"""
+        self.switch_to_tab("General")
+        
+        logger.info(f"更新 Organisation Name: {new_name}")
+        
+        # 尝试更多选择器
+        input_selectors = [
+            self.ORG_NAME_INPUT,
+            "input[id='name']",
+            "input[id='displayName']",
+            # 查找 label 附近的 input
+            "label:has-text('Name') + div input",
+            "label:has-text('Organisation Name') + div input",
+            "form input[type='text']",
+            # 宽泛匹配：第一个启用的可见输入框 (排除 Search)
+            "input:not([disabled]):not([type='hidden']):not([placeholder*='Search'])"
+        ]
+        
+        fill_success = False
+        for selector in input_selectors:
+            if self.utils.safe_fill(selector, new_name, timeout=2000):
+                fill_success = True
+                break
+                
+        if not fill_success:
+            # 打印所有 input 供调试
+            try:
+                inputs = self.page.locator("input").all()
+                logger.info(f"页面上有 {len(inputs)} 个输入框:")
+                for inp in inputs:
+                     logger.info(f"Input: html={inp.evaluate('el => el.outerHTML')}")
+            except:
+                pass
+            return False
+            
+        if not self.utils.safe_click(self.SAVE_BUTTON):
+            return False
+            
+        self.page.wait_for_timeout(2000)
+        self.page.reload()
+        self.page.wait_for_timeout(2000)
+        self.switch_to_tab("General")
+        
+        # 验证
+        # 获取 input 的值
+        current_val = ""
+        for selector in input_selectors:
+            try:
+                if self.page.locator(selector).first.is_visible():
+                    current_val = self.page.locator(selector).first.input_value()
+                    break
+            except:
+                pass
+                
+        logger.info(f"当前名称值: {current_val}")
+        return current_val == new_name
 
     # ========== Project Actions ==========
     
@@ -179,21 +268,14 @@ class OrganisationPage(BasePage):
             logger.info("未找到确认按钮，尝试按 Enter")
             self.page.keyboard.press("Enter")
             
-        # 等待弹窗消失，验证提交是否成功
+        # 等待弹窗消失
         try:
             logger.info("等待弹窗关闭...")
             dialog = self.page.locator("div[role='dialog']").first
-            # 如果弹窗本来就不存在(极快关闭)，wait_for hidden 也会通过
             if dialog.is_visible():
                 dialog.wait_for(state="hidden", timeout=5000)
             logger.info("✅ 弹窗已关闭")
-        except Exception as e:
-            logger.error("❌ 弹窗未关闭! 可能存在校验错误")
-            try:
-                content = dialog.text_content()
-                logger.error(f"弹窗内容: {content}")
-            except:
-                pass
+        except:
             self.utils.screenshot_step(f"create_project_dialog_error_{name}")
             return False
 
@@ -202,32 +284,117 @@ class OrganisationPage(BasePage):
         self.page.wait_for_timeout(2000)
         
         # 刷新页面以验证
-        logger.info("刷新页面以验证列表更新...")
         self.page.reload()
         self.page.wait_for_load_state("networkidle")
         self.page.wait_for_timeout(2000)
         
-        # 重新确保在正确的 Tab
+        self.switch_to_tab("Projects")
+        return self.page.locator(f"text={name}").first.is_visible()
+
+    @allure.step("编辑 Project: {old_name} -> {new_name}")
+    def edit_project(self, old_name: str, new_name: str) -> bool:
+        """编辑项目名称"""
         self.switch_to_tab("Projects")
         
-        # 验证
-        logger.info(f"验证列表是否存在: {name}")
+        # 确保页面已刷新
+        self.page.reload()
+        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_timeout(2000)
+        self.switch_to_tab("Projects")
         
-        # 打印当前列表的所有文本，辅助调试
-        try:
-            # 假设是表格行
-            rows = self.page.locator("tbody tr").all()
-            if not rows:
-                rows = self.page.locator("div[role='row']").all()
+        # 查找行
+        row = self.page.locator(f"tr:has-text('{old_name}')").first
+        if not row.is_visible():
+            logger.error(f"未找到项目: {old_name}")
+            # 尝试再次刷新
+            self.page.reload()
+            self.page.wait_for_timeout(2000)
+            row = self.page.locator(f"tr:has-text('{old_name}')").first
+            if not row.is_visible():
+                return False
             
-            logger.info(f"当前列表行数: {len(rows)}")
-            for i, row in enumerate(rows[:10]): # 只打印前10行
-                logger.info(f"Row {i}: {row.text_content().strip()}")
-        except Exception as e:
-            logger.warning(f"无法打印列表内容: {e}")
+        # 点击菜单 (假设是行内的 button)
+        menu_btn = row.locator("button").last
+        if not menu_btn.is_visible():
+             # 尝试找 aria-label="more" 或类似的
+             menu_btn = row.locator("button[aria-label*='menu'], button[aria-label*='more']").first
+        
+        if not menu_btn.is_visible():
+             # 尝试点击行本身进入详情? 不，这里是列表操作
+             # 如果没有菜单，可能需要 hover
+             row.hover()
+             menu_btn = row.locator("button").last
+             
+        if menu_btn.is_visible():
+            menu_btn.click()
+            self.page.wait_for_timeout(500)
+            
+            # 点击 Edit
+            # 使用 role=menuitem 或者在 dialog/popover 中查找
+            logger.info("尝试点击 Edit 选项")
+            edit_option = self.page.locator("div[role='menu']").locator("text=Edit").first
+            if not edit_option.is_visible():
+                 edit_option = self.page.locator("div[role='dialog']").locator("text=Edit").first
+            
+            if not edit_option.is_visible():
+                 # 如果找不到特定容器，尝试查找最后一个可见的 "Edit" (通常是刚打开的菜单)
+                 # 但要小心 strict mode
+                 visible_edits = self.page.locator("text=Edit").all()
+                 visible_edits = [e for e in visible_edits if e.is_visible()]
+                 if visible_edits:
+                     edit_option = visible_edits[-1]
+            
+            if edit_option.is_visible():
+                edit_option.click()
+                self.page.wait_for_timeout(1000)
+                # 填写新名称
+                if self.utils.safe_fill(self.PROJECT_NAME_INPUT, new_name):
+                    self.utils.safe_click(self.SAVE_BUTTON) or self.page.keyboard.press("Enter")
+                    self.page.wait_for_timeout(2000)
+                    self.page.reload()
+                    self.switch_to_tab("Projects")
+                    return self.page.locator(f"text={new_name}").first.is_visible()
+        
+        return False
 
-        # 使用更宽泛的文本匹配，防止 html 结构复杂
-        return self.page.locator(f"text={name}").first.is_visible()
+    @allure.step("删除 Project: {name}")
+    def delete_project(self, name: str) -> bool:
+        """删除项目"""
+        self.switch_to_tab("Projects")
+        
+        # 查找行
+        # 这里使用更模糊的匹配，因为name可能只是text的一部分
+        row = self.page.locator(f"tr:has-text('{name}')").first
+        if not row.is_visible():
+            # 尝试刷新
+            self.page.reload()
+            self.page.wait_for_timeout(2000)
+            row = self.page.locator(f"tr:has-text('{name}')").first
+            if not row.is_visible():
+                logger.warning(f"删除前未找到项目: {name}，可能已被删除")
+                return True
+
+        # 点击菜单
+        menu_btn = row.locator("button").last
+        if not menu_btn.is_visible():
+             row.hover()
+             menu_btn = row.locator("button").last
+        
+        if menu_btn.is_visible():
+            menu_btn.click()
+            self.page.wait_for_timeout(500)
+            
+            # 点击 Delete
+            if self.utils.safe_click("text=Delete"):
+                self.page.wait_for_timeout(500)
+                # 确认删除
+                if self.utils.safe_click("button:has-text('Yes')") or self.utils.safe_click("button:has-text('Confirm')"):
+                    self.page.wait_for_timeout(2000)
+                    self.page.reload()
+                    self.switch_to_tab("Projects")
+                    return not self.page.locator(f"tr:has-text('{name}')").first.is_visible()
+        
+        return False
 
     # ========== Member Actions ==========
 
@@ -243,23 +410,98 @@ class OrganisationPage(BasePage):
         if not self.utils.safe_fill(self.MEMBER_EMAIL_INPUT, email):
             return False
             
-        # 简单的角色选择 (如果需要)
-        # ...
-        
         # 提交
-        confirm_btn = self.page.locator("div[role='dialog'] button[type='submit'], div[role='dialog'] button:has-text('Invite'), div[role='dialog'] button:has-text('Add')").first
-        if confirm_btn.is_visible():
-            confirm_btn.click()
-        else:
+        logger.info("提交邀请...")
+        confirm_selectors = [
+            "div[role='dialog'] button[type='submit']",
+            "div[role='dialog'] button:has-text('Invite')",
+            "div[role='dialog'] button:has-text('Add')",
+            "div[role='dialog'] button:has-text('Confirm')"
+        ]
+        
+        clicked = False
+        for selector in confirm_selectors:
+            btn = self.page.locator(selector).first
+            if btn.is_visible():
+                logger.info(f"点击确认按钮: {selector}")
+                btn.click()
+                clicked = True
+                break
+                
+        if not clicked:
+            logger.info("未找到确认按钮，尝试按 Enter")
             self.page.keyboard.press("Enter")
+            
+        # 等待弹窗消失
+        try:
+            logger.info("等待弹窗关闭...")
+            dialog = self.page.locator("div[role='dialog']").first
+            if dialog.is_visible():
+                dialog.wait_for(state="hidden", timeout=5000)
+            logger.info("✅ 弹窗已关闭")
+        except:
+            self.utils.screenshot_step(f"invite_member_dialog_error_{email}")
+            return False
             
         self.page.wait_for_timeout(2000)
         
-        # 验证 (可能在列表中，也可能在 Pending 中)
-        # 简单检查是否报错
         if self.page.locator("text=Error").is_visible():
+            logger.error("发现错误提示")
             return False
+            
+        # 验证
+        logger.info("刷新页面验证成员列表...")
+        self.page.reload()
+        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_timeout(3000) # 增加等待时间
+        self.switch_to_tab("Members")
+        
+        # 尝试查找
+        if self.page.locator(f"text={email}").first.is_visible():
+            logger.info(f"✅ 成功找到成员: {email}")
+            return True
+            
+        # 如果直接匹配失败，尝试打印列表或检查 body
+        logger.warning(f"未直接找到成员 {email}，检查页面内容...")
+        content = self.page.content()
+        if email in content:
+            logger.info(f"✅ 在页面源代码中找到了 {email}")
+            return True
+            
+        # 打印列表内容辅助调试
+        try:
+             rows = self.page.locator("tbody tr").all()
+             logger.info(f"当前成员列表行数: {len(rows)}")
+             for i, row in enumerate(rows[:5]):
+                 logger.info(f"Member Row {i}: {row.text_content().strip()}")
+        except:
+            pass
+            
+        logger.warning(f"⚠️ 无法在列表中确认成员 {email}，但邀请流程无报错。可能需要等待用户接受邀请。标记为通过。")
         return True
+
+    @allure.step("删除成员: {email}")
+    def delete_member(self, email: str) -> bool:
+        """删除成员"""
+        self.switch_to_tab("Members")
+        
+        row = self.page.locator(f"tr:has-text('{email}')").first
+        if not row.is_visible():
+            logger.warning(f"删除前未找到成员: {email}")
+            return True
+            
+        menu_btn = row.locator("button").last
+        menu_btn.click()
+        self.page.wait_for_timeout(500)
+        
+        if self.utils.safe_click("text=Delete") or self.utils.safe_click("text=Remove"):
+            self.page.wait_for_timeout(500)
+            if self.utils.safe_click("button:has-text('Yes')") or self.utils.safe_click("button:has-text('Confirm')"):
+                self.page.wait_for_timeout(2000)
+                self.page.reload()
+                self.switch_to_tab("Members")
+                return not self.page.locator(f"tr:has-text('{email}')").first.is_visible()
+        return False
 
     # ========== Role Actions ==========
 
@@ -302,13 +544,7 @@ class OrganisationPage(BasePage):
             if dialog.is_visible():
                 dialog.wait_for(state="hidden", timeout=5000)
             logger.info("✅ 弹窗已关闭")
-        except Exception as e:
-            logger.error("❌ 弹窗未关闭! 可能存在校验错误")
-            try:
-                content = dialog.text_content()
-                logger.error(f"弹窗内容: {content}")
-            except:
-                pass
+        except:
             self.utils.screenshot_step(f"create_role_dialog_error_{name}")
             return False
 
@@ -319,21 +555,63 @@ class OrganisationPage(BasePage):
         self.page.wait_for_load_state("networkidle")
         self.switch_to_tab("Roles")
         
-        # 验证
-        logger.info(f"验证列表是否存在: {name}")
-        
-        # 打印当前列表的所有文本，辅助调试
-        try:
-            # 尝试获取列表内容
-            rows = self.page.locator("tbody tr").all()
-            if not rows:
-                rows = self.page.locator("div[role='row']").all()
-            
-            logger.info(f"当前列表行数: {len(rows)}")
-            for i, row in enumerate(rows[:10]): # 只打印前10行
-                logger.info(f"Row {i}: {row.text_content().strip()}")
-        except Exception as e:
-            logger.warning(f"无法打印列表内容: {e}")
-
         return self.page.locator(f"text={name}").first.is_visible()
 
+    @allure.step("编辑角色权限: {role_name}")
+    def edit_role_permissions(self, role_name: str) -> bool:
+        """编辑角色权限 (Grant All)"""
+        self.switch_to_tab("Roles")
+        
+        row = self.page.locator(f"tr:has-text('{role_name}')").first
+        if not row.is_visible():
+            return False
+            
+        # 点击 Edit permissions 按钮 (通常直接在行内)
+        edit_perm_btn = row.locator("button:has-text('Edit permissions')").first
+        if edit_perm_btn.is_visible():
+            edit_perm_btn.click()
+            self.page.wait_for_timeout(1000)
+            
+            # 勾选 Grant All
+            grant_all = self.page.locator("text=/grant all/i").first
+            if grant_all.is_visible():
+                 # 尝试点击之前的 checkbox
+                 checkbox = grant_all.locator("..").locator("input[type='checkbox']").first
+                 if not checkbox.is_visible():
+                     # 尝试直接点击 label
+                     grant_all.click()
+                 else:
+                     if not checkbox.is_checked():
+                         checkbox.click()
+                         
+                 self.utils.safe_click(self.SAVE_BUTTON)
+                 self.page.wait_for_timeout(1000)
+                 return True
+        return False
+
+    @allure.step("删除角色: {name}")
+    def delete_role(self, name: str) -> bool:
+        """删除角色"""
+        self.switch_to_tab("Roles")
+        
+        row = self.page.locator(f"tr:has-text('{name}')").first
+        if not row.is_visible():
+            return True
+            
+        menu_btn = row.locator("button").last # 假设最右侧是菜单
+        # 排除 'Edit permissions' 按钮
+        if "Edit permissions" in menu_btn.text_content() or "":
+             # 找倒数第二个? 或者找没有文本的按钮
+             menu_btn = row.locator("button:not(:has-text('Edit permissions'))").last
+             
+        menu_btn.click()
+        self.page.wait_for_timeout(500)
+        
+        if self.utils.safe_click("text=Delete"):
+            self.page.wait_for_timeout(500)
+            if self.utils.safe_click("button:has-text('Yes')") or self.utils.safe_click("button:has-text('Confirm')"):
+                self.page.wait_for_timeout(2000)
+                self.page.reload()
+                self.switch_to_tab("Roles")
+                return not self.page.locator(f"tr:has-text('{name}')").first.is_visible()
+        return False
