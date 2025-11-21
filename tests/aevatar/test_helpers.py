@@ -28,7 +28,7 @@ def generate_random_name(prefix: str = "test", length: int = 6) -> str:
     """
     random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
     timestamp = datetime.now().strftime("%m%d%H%M%S")
-    return f"{prefix}_{timestamp}_{random_str}"
+    return f"{prefix}-{timestamp}-{random_str}"
 
 
 def generate_random_email(domain: str = "example.com") -> str:
