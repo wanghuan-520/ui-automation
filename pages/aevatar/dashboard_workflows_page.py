@@ -33,6 +33,7 @@ class DashboardWorkflowsPage(BasePage):
     NEW_WORKFLOW_BUTTON = "button:has-text('New Workflow')"
     IMPORT_WORKFLOW_BUTTON = "button:has-text('Import Workflow')"
     CHOOSE_FILE_BUTTON = "button:has-text('Choose File')"
+    FORMAT_LAYOUT_BUTTON = "button[aria-label='format layout']"
     
     # 工作流表格
     WORKFLOW_TABLE = "role=table"
@@ -344,12 +345,14 @@ class DashboardWorkflowsPage(BasePage):
             return False
     
     @allure.step("添加Agent到画布: {agent_type}")
-    def add_agent_to_canvas(self, agent_type: str = "InputGAgent") -> bool:
+    def add_agent_to_canvas(self, agent_type: str = "InputGAgent", drop_x: int = None, drop_y: int = None) -> bool:
         """
         通过拖拽方式添加Agent到画布
         
         Args:
             agent_type: Agent类型名称
+            drop_x: 放置的X坐标 (可选)
+            drop_y: 放置的Y坐标 (可选)
             
         Returns:
             bool: 是否添加成功
@@ -384,13 +387,15 @@ class DashboardWorkflowsPage(BasePage):
                 logger.error("❌ 无法获取Agent元素位置")
                 return False
             
-            # 计算画布中心位置
+            # 计算画布放置位置
             viewport = self.page.viewport_size
-            canvas_x = viewport['width'] * 0.6
-            canvas_y = viewport['height'] // 2
+            if drop_x is None:
+                drop_x = viewport['width'] * 0.5
+            if drop_y is None:
+                drop_y = viewport['height'] // 2
             
             # 执行拖拽操作
-            logger.info(f"拖拽Agent从 ({agent_box['x']}, {agent_box['y']}) 到 ({canvas_x}, {canvas_y})")
+            logger.info(f"拖拽Agent从 ({agent_box['x']}, {agent_box['y']}) 到 ({drop_x}, {drop_y})")
             
             # 移动到Agent中心
             self.page.mouse.move(
@@ -401,7 +406,7 @@ class DashboardWorkflowsPage(BasePage):
             self.page.wait_for_timeout(300)
             
             # 拖拽到画布
-            self.page.mouse.move(canvas_x, canvas_y, steps=10)
+            self.page.mouse.move(drop_x, drop_y, steps=10)
             self.page.wait_for_timeout(300)
             self.page.mouse.up()
             
@@ -409,7 +414,7 @@ class DashboardWorkflowsPage(BasePage):
             self.page.wait_for_timeout(2000)
             logger.info("✅ Agent已拖拽到画布")
             
-            # 验证是否出现配置弹窗
+            # 验证是否出现配置弹窗 (ChatAlGAgent 等可能也有弹窗)
             try:
                 config_modal = self.page.wait_for_selector(
                     "text=/Agent configuration|Configure|配置/i",
@@ -422,9 +427,158 @@ class DashboardWorkflowsPage(BasePage):
                 logger.warning("⚠️ 未检测到配置弹窗，但Agent可能已添加")
                 return True
             
+            return True # 默认成功
+            
         except Exception as e:
             logger.error(f"❌ 添加Agent失败: {str(e)}")
             self.take_screenshot("add_agent_failed.png")
+            return False
+
+    def get_agent_on_canvas(self, agent_name: str):
+        """
+        获取画布上的Agent元素
+        (优化：优先匹配React Flow节点类，或寻找最小包围盒以排除父容器)
+        """
+        logger.info(f"Searching for agent '{agent_name}' on canvas...")
+        
+        # 策略1: 尝试直接定位 React Flow 节点类
+        try:
+            nodes = self.page.locator(f".react-flow__node:has-text('{agent_name}')").all()
+            if nodes:
+                for node in nodes:
+                    if node.is_visible():
+                        box = node.bounding_box()
+                        if box and box['x'] > 300:
+                            logger.info(f"✅ Found .react-flow__node: {box}")
+                            return node
+        except:
+            pass
+            
+        # 策略2: 通用查找，取面积最小的可见元素 (排除包含该文本的巨大父容器)
+        elements = self.page.locator(f"div:has-text('{agent_name}')").all()
+        candidates = []
+        
+        for element in elements:
+            try:
+                if not element.is_visible():
+                    continue
+                
+                box = element.bounding_box()
+                if box and box['x'] > 300:
+                    area = box['width'] * box['height']
+                    # 过滤掉全屏级别的大容器 (假设节点不会超过 500x500)
+                    if area < 250000: 
+                        candidates.append((area, element, box))
+            except:
+                continue
+        
+        if candidates:
+            # 按面积从小到大排序，取最小的 (最内层元素)
+            candidates.sort(key=lambda x: x[0])
+            best_match = candidates[0]
+            logger.info(f"✅ Found best match (Area: {best_match[0]}): {best_match[2]}")
+            return best_match[1]
+            
+        logger.warning(f"❌ Agent '{agent_name}' not found on canvas")
+        return None
+
+    @allure.step("连接两个Agent: {source_name} -> {target_name}")
+    def connect_agents(self, source_name: str, target_name: str) -> bool:
+        """
+        连接两个Agent (优先查找Handle元素，失败则回退到坐标)
+        
+        Args:
+            source_name: 源Agent名称
+            target_name: 目标Agent名称
+            
+        Returns:
+            bool: 是否连接操作完成
+        """
+        logger.info(f"连接Agent: {source_name} -> {target_name}")
+        self.take_screenshot(f"before_connect_{source_name}_{target_name}.png")
+        
+        try:
+            # 1. 获取源节点和目标节点
+            source_element = self.get_agent_on_canvas(source_name)
+            target_element = self.get_agent_on_canvas(target_name)
+            
+            if not source_element or not target_element:
+                logger.error(f"❌ 无法在画布上找到Agent: Source={bool(source_element)}, Target={bool(target_element)}")
+                return False
+            
+            # 2. 尝试查找 Handle 元素 (针对 React Flow 等库)
+            # 源节点：通常是 source handle (right)
+            source_handle = source_element.locator(".react-flow__handle-right, .source, [data-handle-pos='right']").first
+            # 目标节点：通常是 target handle (left)
+            target_handle = target_element.locator(".react-flow__handle-left, .target, [data-handle-pos='left']").first
+            
+            use_handles = False
+            try:
+                if source_handle.count() > 0 and target_handle.count() > 0:
+                    # 获取 Handle 的精确位置
+                    source_box = source_handle.bounding_box()
+                    target_box = target_handle.bounding_box()
+                    if source_box and target_box:
+                        logger.info("✅ 找到精确的 Handle 元素")
+                        start_x = source_box['x'] + source_box['width'] / 2
+                        start_y = source_box['y'] + source_box['height'] / 2
+                        end_x = target_box['x'] + target_box['width'] / 2
+                        end_y = target_box['y'] + target_box['height'] / 2
+                        use_handles = True
+            except:
+                pass
+            
+            if not use_handles:
+                logger.info("⚠️ 未找到Handle元素，使用坐标估算")
+                source_box = source_element.bounding_box()
+                target_box = target_element.bounding_box()
+                
+                # 源节点右侧边缘中心
+                start_x = source_box['x'] + source_box['width'] - 2
+                start_y = source_box['y'] + source_box['height'] / 2
+                
+                # 目标节点左侧边缘中心
+                end_x = target_box['x'] + 2
+                end_y = target_box['y'] + target_box['height'] / 2
+            
+            logger.info(f"拖拽连线: ({start_x}, {start_y}) -> ({end_x}, {end_y})")
+            
+            # 3. 执行拖拽 (模拟人类慢速操作)
+            # 3.1 移动到源点并悬停
+            self.page.mouse.move(start_x, start_y)
+            self.page.wait_for_timeout(1000) # 充分悬停，确保Handle激活
+            
+            # 3.2 按下鼠标
+            self.page.mouse.down()
+            self.page.wait_for_timeout(500)
+            
+            # 3.3 缓慢移出源节点 (触发连线绘制)
+            self.page.mouse.move(start_x + 100, start_y, steps=20)
+            self.page.wait_for_timeout(500)
+            
+            # 3.4 缓慢移动到目标点
+            self.page.mouse.move(end_x, end_y, steps=50) # 非常慢的移动
+            self.page.wait_for_timeout(1000) # 在目标点悬停，等待吸附
+            
+            # 3.5 微动鼠标 (Wiggle) 确保触发 mouseover 事件
+            self.page.mouse.move(end_x + 5, end_y + 5, steps=5)
+            self.page.wait_for_timeout(200)
+            self.page.mouse.move(end_x - 5, end_y - 5, steps=5)
+            self.page.wait_for_timeout(200)
+            self.page.mouse.move(end_x, end_y, steps=5) # 回到中心
+            self.page.wait_for_timeout(1000) # 再次等待
+            
+            # 3.6 释放鼠标
+            self.page.mouse.up()
+            self.page.wait_for_timeout(2000) # 等待连线完成的动画
+            
+            self.take_screenshot(f"after_connect_{source_name}_{target_name}.png")
+            logger.info("✅ 连线操作完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ 连接Agent失败: {str(e)}")
+            self.take_screenshot("connect_agents_failed.png")
             return False
     
     @allure.step("配置Agent参数")
@@ -466,6 +620,18 @@ class DashboardWorkflowsPage(BasePage):
             logger.error(f"❌ 配置Agent失败: {str(e)}")
             return False
     
+    @allure.step("点击Format Layout按钮")
+    def click_format_layout(self) -> bool:
+        """点击Format Layout按钮以整理布局"""
+        logger.info("点击Format Layout按钮")
+        try:
+            self.click_element(self.FORMAT_LAYOUT_BUTTON)
+            self.page.wait_for_timeout(1000) # 等待布局动画完成
+            return True
+        except Exception as e:
+            logger.warning(f"点击Format Layout按钮失败: {e}")
+            return False
+
     @allure.step("运行Workflow")
     def run_workflow(self) -> bool:
         """
@@ -565,6 +731,36 @@ class DashboardWorkflowsPage(BasePage):
         logger.info("⚠️ 无法明确验证执行结果，假设执行中")
         return True
     
+    @allure.step("获取当前画布上的连线数量")
+    def get_edge_count(self) -> int:
+        """
+        获取画布上连线(Edge)的数量，用于验证连接是否成功
+        
+        Returns:
+            int: 连线数量
+        """
+        # 尝试常见的连线选择器 (React Flow 等)
+        edge_selectors = [
+            ".react-flow__edge",
+            "g.edge",
+            "svg path.connection",
+            ".jtk-connector" # jsPlumb
+        ]
+        
+        count = 0
+        for selector in edge_selectors:
+            elements = self.page.locator(selector)
+            current_count = elements.count()
+            if current_count > 0:
+                count = current_count
+                logger.info(f"找到连线元素 ({selector}): {count} 条")
+                break
+        
+        if count == 0:
+            logger.info("未找到可见的连线元素")
+            
+        return count
+
     @allure.step("删除指定Workflow: {workflow_name}")
     def delete_workflow(self, workflow_name: str) -> bool:
         """

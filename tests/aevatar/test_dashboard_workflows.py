@@ -98,16 +98,21 @@ class TestDashboardWorkflowsE2E:
     @pytest.mark.e2e
     @pytest.mark.p0
     @allure.title("E2E-P0: 创建并运行Workflow完整流程")
-    @allure.description("端到端测试：创建Workflow → 添加Agent → 配置参数 → 运行 → 验证结果")
+    @allure.description("端到端测试：创建Workflow → 添加Input/ChatAlG Agent → 连接 → 配置 → 运行")
     @allure.severity(allure.severity_level.CRITICAL)
     def test_create_and_run_workflow_e2e(self):
         """
         E2E测试: 创建并运行Workflow完整流程
-        整合验证点：按钮点击、Agent拖拽、配置弹窗、运行执行
+        整合验证点：按钮点击、多Agent拖拽、连线、配置弹窗、运行执行
         """
         logger.info("=" * 80)
         logger.info("🧪 开始E2E测试: 创建并运行Workflow [P0]")
         logger.info("=" * 80)
+        
+        # 定义Agent坐标 (确保间距足够，避免节点重叠遮挡Handle)
+        # 之前失败原因：节点间距太小，导致目标节点遮挡了源节点的输出Handle
+        input_pos = (400, 400) 
+        chat_pos = (1000, 400)
         
         # ✅ 验证点1: New Workflow按钮
         logger.info("📍 步骤1: 点击New Workflow按钮")
@@ -124,37 +129,89 @@ class TestDashboardWorkflowsE2E:
         self.page_utils.screenshot_step("01-Workflow编辑器页面")
         logger.info("✅ Workflow创建页面已打开")
         
-        # ✅ 验证点2: Agent拖拽添加
-        logger.info("📍 步骤2: 拖拽Agent到画布")
-        success = self.workflows_page.add_agent_to_canvas("InputGAgent")
-        assert success, "Agent拖拽到画布失败"
-        self.page_utils.screenshot_step("02-Agent添加到画布")
-        logger.info("✅ Agent成功添加到画布，配置弹窗已打开")
+        # ✅ 验证点2: InputGAgent拖拽
+        with allure.step("步骤2: 拖拽InputGAgent到画布"):
+            logger.info(f"📍 步骤2: 拖拽InputGAgent到 {input_pos}")
+            success = self.workflows_page.add_agent_to_canvas("InputGAgent", drop_x=input_pos[0], drop_y=input_pos[1])
+            assert success, "InputGAgent拖拽到画布失败"
+            
+            # 增加等待，确保Agent渲染完成
+            self.page.wait_for_timeout(2000)
+            
+            # 验证Agent是否真的在画布上
+            agent_on_canvas = self.workflows_page.get_agent_on_canvas("InputGAgent")
+            assert agent_on_canvas, "InputGAgent未在画布上找到"
+            
+            self.page_utils.screenshot_step("02-InputGAgent添加到画布")
+            logger.info("✅ InputGAgent成功添加到画布")
         
-        # ✅ 验证点3: Agent参数配置
-        logger.info("📍 步骤3: 配置Agent参数")
-        config = {
-            "member_name": "e2e_test",
-            "input": "中国美食推荐"
-        }
-        success = self.workflows_page.configure_agent(config)
-        assert success, "Agent参数配置失败"
-        self.page_utils.screenshot_step("03-Agent配置完成")
-        logger.info("✅ Agent配置完成")
+        # ✅ 验证点3: InputGAgent参数配置
+        with allure.step("步骤3: 配置InputGAgent参数"):
+            logger.info("📍 步骤3: 配置InputGAgent参数")
+            config = {
+                "member_name": "e2e_test",
+                "input": "中国美食推荐"
+            }
+            success = self.workflows_page.configure_agent(config)
+            assert success, "InputGAgent参数配置失败"
+            self.page_utils.screenshot_step("03-InputGAgent配置完成")
+            logger.info("✅ InputGAgent配置完成")
         
-        # ✅ 验证点4: 运行Workflow
-        logger.info("📍 步骤4: 运行Workflow")
-        success = self.workflows_page.run_workflow()
-        assert success, "Workflow运行失败"
-        self.page_utils.screenshot_step("04-Workflow运行中")
-        logger.info("✅ Workflow已触发运行")
+        # ✅ 验证点4: ChatAIGAgent拖拽
+        with allure.step("步骤4: 拖拽ChatAIGAgent到画布"):
+            logger.info(f"📍 步骤4: 拖拽ChatAIGAgent到 {chat_pos}")
+            success = self.workflows_page.add_agent_to_canvas("ChatAIGAgent", drop_x=chat_pos[0], drop_y=chat_pos[1])
+            assert success, "ChatAIGAgent拖拽到画布失败"
+            self.page_utils.screenshot_step("04-ChatAIGAgent添加到画布")
+            
+            # 如果出现配置弹窗，关闭它（这里只需连接，暂不配置）
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(1000)
+            logger.info("✅ ChatAIGAgent添加完成")
+
+        # ✅ 验证点5: 连接Agent
+        with allure.step("步骤5: 连接InputGAgent和ChatAIGAgent"):
+            logger.info("📍 步骤5: 连接InputGAgent -> ChatAIGAgent")
+            
+            # 获取连接前的连线数量
+            edges_before = self.workflows_page.get_edge_count()
+            logger.info(f"连接前连线数量: {edges_before}")
+            
+            # 使用名称进行连接，不再依赖硬编码坐标
+            success = self.workflows_page.connect_agents("InputGAgent", "ChatAIGAgent")
+            assert success, "Agent连接操作失败"
+            
+            # 验证连接是否真正成功（检查连线数量增加）
+            self.page.wait_for_timeout(1000) # 等待连线渲染
+            edges_after = self.workflows_page.get_edge_count()
+            logger.info(f"连接后连线数量: {edges_after}")
+            
+            assert edges_after > edges_before, f"连接未创建成功! 连线数量未增加: {edges_before} -> {edges_after}"
+            
+            self.page_utils.screenshot_step("05-Agent已连接")
+            logger.info("✅ Agent连接完成并验证通过")
         
-        # ✅ 验证点5: 验证执行结果
-        logger.info("📍 步骤5: 验证执行结果")
-        success = self.workflows_page.verify_workflow_execution(timeout=15000)
-        assert success, "Workflow执行验证失败"
-        self.page_utils.screenshot_step("05-Workflow执行完成")
-        logger.info("✅ Workflow执行验证通过")
+        # ✅ 验证点6: 运行Workflow
+        with allure.step("步骤6: 运行Workflow"):
+            logger.info("📍 步骤6: 运行Workflow")
+            
+            # 在运行前点击Format Layout
+            self.workflows_page.click_format_layout()
+            self.page_utils.screenshot_step("06-1-FormatLayout完成")
+            logger.info("✅ Format Layout布局整理完成")
+            
+            success = self.workflows_page.run_workflow()
+            assert success, "Workflow运行失败"
+            self.page_utils.screenshot_step("06-2-Workflow运行中")
+            logger.info("✅ Workflow已触发运行")
+        
+        # ✅ 验证点7: 验证执行结果
+        with allure.step("步骤7: 验证执行结果"):
+            logger.info("📍 步骤7: 验证执行结果")
+            success = self.workflows_page.verify_workflow_execution(timeout=20000) # 增加超时时间
+            assert success, "Workflow执行验证失败"
+            self.page_utils.screenshot_step("07-Workflow执行完成")
+            logger.info("✅ Workflow执行验证通过")
         
         logger.info("=" * 80)
         logger.info("🎉 E2E测试完成: 创建并运行Workflow流程测试通过")
