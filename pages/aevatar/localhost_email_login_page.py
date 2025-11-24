@@ -14,10 +14,11 @@ class LocalhostEmailLoginPage(BasePage):
     PASSWORD_INPUT = "input[type='password'], input[placeholder*='password' i]"
     # 尝试多种按钮选择器，按优先级排序
     LOGIN_BUTTON = "button[type='submit'], button:has-text('Continue'), button:has-text('Login'), button:has-text('Log in'), button:has-text('Sign in'), button:has-text('Submit'), form button"
-    FORGET_PASSWORD_LINK = "text=Forget Password?, text=Forgot Password?"
-    SIGNUP_LINK = "text=Sign up, text=Register"
+    # 使用明确的文本匹配避免正则表达式解析问题
+    FORGET_PASSWORD_LINK = "a:has-text('Forgot Password'), a:has-text('Forget Password'), span:has-text('Forgot Password'), button:has-text('Forgot Password')"
+    SIGNUP_LINK = "a:has-text('Sign up'), a:has-text('Register'), a:has-text('Sign Up'), button:has-text('Sign up'), button:has-text('Register')"
     SHOW_PASSWORD_BUTTON = "[aria-label*='show'], [aria-label*='password']"
-    ERROR_MESSAGE = "text=/error|invalid|incorrect|wrong|错误|失败/i"
+    ERROR_MESSAGE = "text=/error|invalid|incorrect|wrong|错误|失败/i, .ant-message, .ant-alert, .toast, .notification, [role='alert'], .MuiAlert-root"
     PAGE_TITLE = "text=/login|sign in|email/i"
     BACK_BUTTON = "button:has-text('Back'), [aria-label*='back']"
     EDIT_EMAIL_BUTTON = "text=Edit, button:has-text('Edit')"
@@ -244,7 +245,8 @@ class LocalhostEmailLoginPage(BasePage):
             Optional[str]: 错误信息，如果没有错误则返回None
         """
         try:
-            if self.is_element_visible(self.ERROR_MESSAGE, timeout=3000):
+            # 增加超时时间以捕获异步出现的Toast
+            if self.is_element_visible(self.ERROR_MESSAGE, timeout=10000):
                 error_text = self.get_element_text(self.ERROR_MESSAGE)
                 logger.info(f"发现错误提示: {error_text}")
                 return error_text

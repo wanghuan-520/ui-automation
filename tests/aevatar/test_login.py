@@ -1,11 +1,14 @@
 import pytest
+import allure
 from playwright.sync_api import Page
 from pages.aevatar.localhost_email_login_page import LocalhostEmailLoginPage
 from utils.data_manager import DataManager
 from utils.logger import get_logger
+from utils.page_utils import PageUtils
 
 logger = get_logger(__name__)
 
+@allure.feature("登录功能")
 class TestLocalhostLogin:
     """localhost:5173 邮箱登录功能测试类"""
     
@@ -13,6 +16,7 @@ class TestLocalhostLogin:
     def setup(self, page: Page):
         """测试前置设置"""
         self.page = page
+        self.page_utils = PageUtils(page)
         self.login_page = LocalhostEmailLoginPage(page)
         
         # 加载测试数据
@@ -25,6 +29,7 @@ class TestLocalhostLogin:
     @pytest.mark.smoke
     @pytest.mark.login
     @pytest.mark.critical
+    @allure.title("TC001: 正常邮箱登录")
     def test_tc001_normal_login(self):
         """
         TC001: 正常邮箱登录
@@ -40,44 +45,56 @@ class TestLocalhostLogin:
         password = valid_user.get("password", "Wh520520!")
         
         # 1. 访问登录页
-        logger.info("步骤1: 访问登录页")
-        self.login_page.navigate()
-        assert self.login_page.is_loaded(), "❌ 登录页未加载成功"
-        logger.info("✅ 登录页加载成功")
+        with allure.step("步骤1: 访问登录页"):
+            logger.info("步骤1: 访问登录页")
+            self.login_page.navigate()
+            assert self.login_page.is_loaded(), "❌ 登录页未加载成功"
+            self.page_utils.screenshot_step("login_page_loaded")
+            logger.info("✅ 登录页加载成功")
         
         # 2. 输入邮箱
-        logger.info(f"步骤2: 输入邮箱 {email}")
-        assert self.login_page.enter_email(email), "❌ 邮箱输入失败"
-        logger.info("✅ 邮箱输入成功")
+        with allure.step(f"步骤2: 输入邮箱 {email}"):
+            logger.info(f"步骤2: 输入邮箱 {email}")
+            assert self.login_page.enter_email(email), "❌ 邮箱输入失败"
+            self.page_utils.screenshot_step("email_entered")
+            logger.info("✅ 邮箱输入成功")
         
         # 3. 输入密码
-        logger.info("步骤3: 输入密码")
-        assert self.login_page.enter_password(password), "❌ 密码输入失败"
-        logger.info("✅ 密码输入成功")
+        with allure.step("步骤3: 输入密码"):
+            logger.info("步骤3: 输入密码")
+            assert self.login_page.enter_password(password), "❌ 密码输入失败"
+            self.page_utils.screenshot_step("password_entered")
+            logger.info("✅ 密码输入成功")
         
         # 4. 点击登录按钮
-        logger.info("步骤4: 点击登录按钮")
-        assert self.login_page.click_login(), "❌ 登录按钮点击失败"
-        logger.info("✅ 登录按钮点击成功")
+        with allure.step("步骤4: 点击登录按钮"):
+            logger.info("步骤4: 点击登录按钮")
+            assert self.login_page.click_login(), "❌ 登录按钮点击失败"
+            logger.info("✅ 登录按钮点击成功")
         
         # 5. 验证登录结果
-        logger.info("步骤5: 验证登录状态")
-        # 检查是否有错误提示
-        error_message = self.login_page.get_error_message()
-        if error_message:
-            logger.warning(f"⚠️  发现错误提示: {error_message}")
-        
-        # 检查URL是否变化（登录成功的标志）
-        is_success = self.login_page.is_login_successful()
-        if is_success:
-            logger.info("✅ 登录成功，URL已变化")
-        else:
-            logger.info("ℹ️  登录请求已提交，等待服务器响应")
+        with allure.step("步骤5: 验证登录状态"):
+            logger.info("步骤5: 验证登录状态")
+            # 检查是否有错误提示
+            error_message = self.login_page.get_error_message()
+            if error_message:
+                self.page_utils.screenshot_step("login_error")
+                logger.warning(f"⚠️  发现错误提示: {error_message}")
+            
+            # 检查URL是否变化（登录成功的标志）
+            self.page.wait_for_timeout(2000)
+            is_success = self.login_page.is_login_successful()
+            self.page_utils.screenshot_step("login_result")
+            if is_success:
+                logger.info("✅ 登录成功，URL已变化")
+            else:
+                logger.info("ℹ️  登录请求已提交，等待服务器响应")
         
         logger.info("🎉 TC001 测试完成")
     
     @pytest.mark.ui
     @pytest.mark.medium_priority
+    @allure.title("TC002: 邮箱输入框功能验证")
     def test_tc002_email_input_validation(self):
         """
         TC002: 邮箱输入框功能验证
@@ -95,12 +112,14 @@ class TestLocalhostLogin:
         test_email = "test@example.com"
         logger.info(f"输入测试邮箱: {test_email}")
         assert self.login_page.enter_email(test_email), "❌ 邮箱输入失败"
+        self.page_utils.screenshot_step("email_input_validation")
         logger.info("✅ 邮箱输入框功能正常")
         
         logger.info("🎉 TC002 测试通过")
     
     @pytest.mark.ui
     @pytest.mark.medium_priority
+    @allure.title("TC003: 密码输入框功能验证")
     def test_tc003_password_input_validation(self):
         """
         TC003: 密码输入框功能验证
@@ -118,6 +137,7 @@ class TestLocalhostLogin:
         test_password = "TestPassword123!"
         logger.info("输入测试密码")
         assert self.login_page.enter_password(test_password), "❌ 密码输入失败"
+        self.page_utils.screenshot_step("password_input_validation")
         logger.info("✅ 密码输入成功")
         
         # 验证密码默认隐藏
@@ -130,13 +150,14 @@ class TestLocalhostLogin:
     
     @pytest.mark.ui
     @pytest.mark.medium_priority
-    def test_tc004_password_visibility_toggle(self):
+    @allure.title("TC004: 密码默认加密显示验证")
+    def test_tc004_password_default_hidden(self):
         """
-        TC004: 密码显示/隐藏切换
-        验证密码可见性切换功能正常
+        TC004: 密码默认加密显示验证
+        验证密码输入框默认显示为密文（不支持切换明文）
         """
         logger.info("=" * 80)
-        logger.info("开始测试 TC004: 密码可见性切换")
+        logger.info("开始测试 TC004: 密码默认加密显示验证")
         logger.info("=" * 80)
         
         # 访问登录页
@@ -150,34 +171,16 @@ class TestLocalhostLogin:
         
         # 验证默认隐藏
         logger.info("验证密码默认隐藏")
+        self.page_utils.screenshot_step("password_hidden_default")
         initial_visibility = self.login_page.is_password_visible()
         assert not initial_visibility, "❌ 密码应该默认隐藏"
         logger.info("✅ 密码默认隐藏状态正确")
         
-        # 尝试切换密码可见性
-        logger.info("尝试切换密码可见性")
-        if self.login_page.toggle_password_visibility():
-            self.page.wait_for_timeout(500)
-            visible_state = self.login_page.is_password_visible()
-            if visible_state:
-                logger.info("✅ 密码成功切换为可见")
-                
-                # 再次切换隐藏
-                logger.info("再次切换隐藏密码")
-                self.login_page.toggle_password_visibility()
-                self.page.wait_for_timeout(500)
-                hidden_state = self.login_page.is_password_visible()
-                if not hidden_state:
-                    logger.info("✅ 密码成功切换为隐藏")
-            else:
-                logger.warning("⚠️  密码可见性切换可能未生效")
-        else:
-            logger.warning("⚠️  未找到密码可见性切换按钮，跳过切换测试")
-        
         logger.info("🎉 TC004 测试完成")
-    
+
     @pytest.mark.ui
     @pytest.mark.medium_priority
+    @allure.title("TC005: 忘记密码链接")
     def test_tc005_forget_password_link(self):
         """
         TC005: 忘记密码链接
@@ -191,20 +194,32 @@ class TestLocalhostLogin:
         self.login_page.navigate()
         assert self.login_page.is_loaded(), "❌ 登录页未加载成功"
         
-        # 尝试点击忘记密码链接
-        logger.info("尝试点击忘记密码链接")
-        if self.login_page.click_forget_password():
-            self.page.wait_for_timeout(2000)
-            current_url = self.login_page.get_current_url()
-            logger.info(f"点击后URL: {current_url}")
-            logger.info("✅ 忘记密码链接可正常访问")
-        else:
-            logger.warning("⚠️  未找到忘记密码链接或点击失败")
+        # 点击忘记密码链接
+        logger.info("点击忘记密码链接")
+        self.page_utils.screenshot_step("before_click_forget_password")
         
+        click_result = self.login_page.click_forget_password()
+        assert click_result, "❌ 忘记密码链接点击失败"
+        
+        # 等待跳转或弹窗
+        self.page.wait_for_timeout(3000)
+        self.page_utils.screenshot_step("after_click_forget_password")
+        
+        # 验证URL变化或弹窗出现
+        current_url = self.login_page.get_current_url()
+        logger.info(f"点击后URL: {current_url}")
+        
+        # 检查是否跳转到忘记密码页面或有弹窗/对话框
+        url_changed = current_url != "http://localhost:5173"
+        dialog_visible = self.page_utils.is_element_visible("dialog, [role='dialog'], .modal, .ant-modal", timeout=2000)
+        
+        assert url_changed or dialog_visible, f"❌ 忘记密码功能未生效: URL未变化且无弹窗 (当前URL: {current_url})"
+        logger.info("✅ 忘记密码链接功能正常")
         logger.info("🎉 TC005 测试完成")
     
     @pytest.mark.ui
     @pytest.mark.medium_priority
+    @allure.title("TC006: 注册链接跳转")
     def test_tc006_signup_link(self):
         """
         TC006: 注册链接跳转
@@ -218,20 +233,33 @@ class TestLocalhostLogin:
         self.login_page.navigate()
         assert self.login_page.is_loaded(), "❌ 登录页未加载成功"
         
-        # 尝试点击注册链接
-        logger.info("尝试点击注册链接")
-        if self.login_page.click_signup():
-            self.page.wait_for_timeout(2000)
-            current_url = self.login_page.get_current_url()
-            logger.info(f"点击后URL: {current_url}")
-            logger.info("✅ 注册链接可正常访问")
-        else:
-            logger.warning("⚠️  未找到注册链接或点击失败")
+        # 点击注册链接
+        logger.info("点击注册链接")
+        self.page_utils.screenshot_step("before_click_signup")
         
+        click_result = self.login_page.click_signup()
+        assert click_result, "❌ 注册链接点击失败"
+        
+        # 等待页面跳转
+        self.page.wait_for_timeout(3000)
+        self.page_utils.screenshot_step("after_click_signup")
+        
+        # 验证URL已变化
+        current_url = self.login_page.get_current_url()
+        logger.info(f"点击后URL: {current_url}")
+        
+        # 检查是否跳转到注册页面（URL应该包含signup/register或不是登录页）
+        is_signup_page = ("signup" in current_url.lower() or 
+                         "register" in current_url.lower() or 
+                         current_url != "http://localhost:5173")
+        
+        assert is_signup_page, f"❌ 注册链接未跳转: 当前URL仍为 {current_url}"
+        logger.info("✅ 注册链接跳转成功")
         logger.info("🎉 TC006 测试完成")
     
     @pytest.mark.boundary
     @pytest.mark.high_priority
+    @allure.title("TC011: 空邮箱提交验证")
     def test_tc011_empty_email(self):
         """
         TC011: 空邮箱提交验证
@@ -248,6 +276,7 @@ class TestLocalhostLogin:
         # 输入密码但不输入邮箱
         logger.info("输入密码，邮箱留空")
         self.login_page.enter_password("TestPassword123!")
+        self.page_utils.screenshot_step("empty_email_filled_password")
         
         # 尝试登录
         logger.info("尝试登录")
@@ -256,6 +285,7 @@ class TestLocalhostLogin:
         
         # 检查错误提示
         error_message = self.login_page.get_error_message()
+        self.page_utils.screenshot_step("empty_email_error")
         if error_message:
             logger.info(f"✅ 发现错误提示: {error_message}")
         else:
@@ -275,6 +305,7 @@ class TestLocalhostLogin:
         {"email": "test@", "expected_error": "邮箱格式不正确"},
         {"email": "@domain.com", "expected_error": "邮箱格式不正确"},
     ])
+    @allure.title("TC012: 无效邮箱格式验证")
     def test_tc012_invalid_email_format(self, invalid_email_data):
         """
         TC012: 无效邮箱格式验证
@@ -293,6 +324,7 @@ class TestLocalhostLogin:
         logger.info(f"输入无效邮箱: '{invalid_email}'")
         self.login_page.enter_email(invalid_email)
         self.login_page.enter_password("TestPassword123!")
+        self.page_utils.screenshot_step(f"invalid_email_input_{invalid_email}")
         
         # 尝试登录
         logger.info("尝试登录")
@@ -301,6 +333,7 @@ class TestLocalhostLogin:
         
         # 验证错误提示或停留在当前页面
         error_message = self.login_page.get_error_message()
+        self.page_utils.screenshot_step(f"invalid_email_result_{invalid_email}")
         current_url = self.login_page.get_current_url()
         
         if error_message:
@@ -314,6 +347,7 @@ class TestLocalhostLogin:
     
     @pytest.mark.boundary
     @pytest.mark.high_priority
+    @allure.title("TC013: 空密码提交验证")
     def test_tc013_empty_password(self):
         """
         TC013: 空密码提交验证
@@ -330,6 +364,7 @@ class TestLocalhostLogin:
         # 只输入邮箱，密码留空
         logger.info("输入邮箱，密码留空")
         self.login_page.enter_email("haylee@test.com")
+        self.page_utils.screenshot_step("empty_password_input")
         
         # 尝试登录
         logger.info("尝试登录")
@@ -338,6 +373,7 @@ class TestLocalhostLogin:
         
         # 检查错误提示
         error_message = self.login_page.get_error_message()
+        self.page_utils.screenshot_step("empty_password_result")
         if error_message:
             logger.info(f"✅ 发现错误提示: {error_message}")
         else:
@@ -353,6 +389,7 @@ class TestLocalhostLogin:
     
     @pytest.mark.exception
     @pytest.mark.high_priority
+    @allure.title("TC021: 错误密码登录验证")
     def test_tc021_wrong_password(self):
         """
         TC021: 错误密码登录验证
@@ -377,14 +414,16 @@ class TestLocalhostLogin:
         
         logger.info("输入错误密码")
         self.login_page.enter_password(wrong_password)
+        self.page_utils.screenshot_step("wrong_password_input")
         
         # 尝试登录
         logger.info("尝试登录")
         self.login_page.click_login()
-        self.page.wait_for_timeout(3000)
+        # 移除固定等待，让get_error_message处理等待
         
         # 验证登录失败
         error_message = self.login_page.get_error_message()
+        self.page_utils.screenshot_step("wrong_password_result")
         if error_message:
             logger.info(f"✅ 发现密码错误提示: {error_message}")
         
@@ -398,6 +437,7 @@ class TestLocalhostLogin:
     
     @pytest.mark.exception
     @pytest.mark.high_priority
+    @allure.title("TC022: 未注册邮箱登录验证")
     def test_tc022_unregistered_email(self):
         """
         TC022: 未注册邮箱登录验证
@@ -420,14 +460,16 @@ class TestLocalhostLogin:
         logger.info(f"输入未注册邮箱: {email}")
         self.login_page.enter_email(email)
         self.login_page.enter_password(password)
+        self.page_utils.screenshot_step("unregistered_email_input")
         
         # 尝试登录
         logger.info("尝试登录")
         self.login_page.click_login()
-        self.page.wait_for_timeout(3000)
+        # 移除固定等待，让get_error_message处理等待
         
         # 检查是否提示邮箱未注册
         error_message = self.login_page.get_error_message()
+        self.page_utils.screenshot_step("unregistered_email_result")
         if error_message:
             logger.info(f"✅ 发现错误提示: {error_message}")
         else:
@@ -446,6 +488,7 @@ class TestLocalhostLogin:
         {"type": "SQL注入", "email": "admin' OR '1'='1", "password": "password"},
         {"type": "XSS攻击", "email": "<script>alert('XSS')</script>", "password": "password"},
     ])
+    @allure.title("TC023: 安全测试")
     def test_tc023_security_validation(self, security_data):
         """
         TC023: 安全测试 - SQL注入和XSS攻击
@@ -463,6 +506,7 @@ class TestLocalhostLogin:
         logger.info(f"输入{security_data['type']}测试数据")
         self.login_page.enter_email(security_data["email"])
         self.login_page.enter_password(security_data["password"])
+        self.page_utils.screenshot_step(f"security_input_{security_data['type']}")
         
         # 尝试登录
         logger.info("尝试登录")
@@ -471,10 +515,10 @@ class TestLocalhostLogin:
         
         # 验证系统正确处理
         is_still_on_login_page = "5173" in self.login_page.get_current_url()
+        self.page_utils.screenshot_step(f"security_result_{security_data['type']}")
         if is_still_on_login_page:
             logger.info(f"✅ {security_data['type']}被正确处理，未执行恶意代码")
         else:
             logger.warning(f"⚠️  {security_data['type']}处理结果需要进一步验证")
         
         logger.info("🎉 TC023 测试完成")
-

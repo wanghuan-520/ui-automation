@@ -87,48 +87,55 @@ class ProjectPage(BasePage):
 
     @allure.step("切换到 Tab: {tab_name}")
     def switch_to_tab(self, tab_name: str):
-        # 处理复数形式
-        name_map = {
-            "Projects": "Project",
-            "Members": "Member",
-            "Roles": "Role",
-            "Settings": "General",
-            "General": "General"
+        # 处理复数形式及URL映射
+        tab_map = {
+            "Projects": "general",
+            "Members": "member", 
+            "Member": "member",
+            "Roles": "role",
+            "Role": "role",
+            "Settings": "general",
+            "General": "general"
         }
-        target_name = name_map.get(tab_name, tab_name)
-        logger.info(f"切换到 Tab: {target_name}")
         
-        # 确保页面加载
-        try:
-            self.page.wait_for_load_state("networkidle", timeout=3000)
-        except:
-            pass
+        target_path = tab_map.get(tab_name, "general")
+        target_url = f"{self.base_url}/profile/projects/{target_path}"
+        
+        logger.info(f"切换到 Tab: {tab_name} -> {target_url}")
+        
+        # 方式1: 直接导航 (更稳定，区分于 Organisation)
+        self.page.goto(target_url)
+        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_timeout(1000)
+        
+        # 验证是否成功 (简单检查URL包含)
+        current_url = self.page.url
+        if target_path not in current_url:
+            logger.warning(f"⚠️ URL切换可能未生效: 期望包含 {target_path}, 实际 {current_url}")
             
-        selectors = [
-            f"span:has-text('{target_name}')",
-            f"div:has-text('{target_name}')",
-            f"div[role='tab']:has-text('{target_name}')",
-            f"text={target_name}"
-        ]
-        
-        for i in range(3):
+            # 方式2: 备用点击方案 (如果URL导航不生效)
+            ui_name_map = {
+                "general": "General",
+                "member": "Member",
+                "role": "Role"
+            }
+            ui_name = ui_name_map.get(target_path, "General")
+            logger.info(f"尝试点击UI元素: {ui_name}")
+            
+            selectors = [
+                f"span:text-is('{ui_name}')",
+                f"div:text-is('{ui_name}')",
+                f"a[href*='{target_path}']"
+            ]
+            
             for selector in selectors:
                 try:
-                    elements = self.page.locator(selector).all()
-                    for el in elements:
-                        if el.is_visible():
-                            el.click(timeout=1000)
-                            self.page.wait_for_load_state("networkidle")
-                            self.page.wait_for_timeout(1000)
-                            return
+                    if self.page.locator(selector).first.is_visible():
+                        self.page.click(selector)
+                        self.page.wait_for_load_state("networkidle")
+                        return
                 except:
                     continue
-            
-            if i < 2:
-                logger.warning(f"切换 Tab 失败，重试 {i+1}...")
-                self.page.wait_for_timeout(1000)
-        
-        logger.warning(f"⚠️ 未能切换到: {target_name}")
 
     # ========== General/Settings Actions ==========
 

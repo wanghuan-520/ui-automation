@@ -1071,61 +1071,355 @@ class DashboardWorkflowsPage(BasePage):
                     # 截图以便调试
                     self.take_screenshot("delete_confirmation_dialog.png")
                     
+                    # 🔍 **详细调试: 输出对话框HTML结构**
+                    try:
+                        dialog_html = dialog.evaluate("el => el.outerHTML")
+                        logger.info(f"📄 对话框HTML结构:\n{dialog_html}\n")
+                        
+                        dialog_text = dialog.inner_text()
+                        logger.info(f"📝 对话框文本内容:\n{dialog_text}\n")
+                        
+                        # 🔍 **详细查找所有可能的交互元素**
+                        logger.info("🔍 详细检查对话框中的所有元素...")
+                        
+                        # 检查所有input
+                        inputs = dialog.locator("input").all()
+                        logger.info(f"   Input元素: {len(inputs)} 个")
+                        for i, inp in enumerate(inputs):
+                            try:
+                                inp_type = inp.get_attribute("type")
+                                inp_id = inp.get_attribute("id") or "N/A"
+                                inp_name = inp.get_attribute("name") or "N/A"
+                                inp_visible = inp.is_visible()
+                                logger.info(f"      [{i+1}] type={inp_type}, id={inp_id}, name={inp_name}, visible={inp_visible}")
+                            except:
+                                pass
+                        
+                        # 检查所有label
+                        labels = dialog.locator("label").all()
+                        logger.info(f"   Label元素: {len(labels)} 个")
+                        for i, lbl in enumerate(labels):
+                            try:
+                                lbl_text = lbl.inner_text()[:50]
+                                lbl_visible = lbl.is_visible()
+                                lbl_for = lbl.get_attribute("for") or "N/A"
+                                logger.info(f"      [{i+1}] text='{lbl_text}', for={lbl_for}, visible={lbl_visible}")
+                            except:
+                                pass
+                        
+                        # 检查所有包含"understand"的元素
+                        understand_elems = dialog.locator("text=/understand/i").all()
+                        logger.info(f"   包含'understand'的元素: {len(understand_elems)} 个")
+                        for i, elem in enumerate(understand_elems):
+                            try:
+                                elem_text = elem.inner_text()[:60]
+                                elem_tag = elem.evaluate("el => el.tagName")
+                                elem_visible = elem.is_visible()
+                                logger.info(f"      [{i+1}] <{elem_tag}> visible={elem_visible}, text='{elem_text}'")
+                            except:
+                                pass
+                                
+                    except Exception as e:
+                        logger.warning(f"获取对话框结构失败: {e}")
+                    
                     # ✅ 新增: 勾选复选框 (如果存在)
                     # 尝试多种选择器
                     checkbox_selectors = [
                         "input[type='checkbox']", 
                         "[role='checkbox']", 
                         ".ant-checkbox-input", 
-                        "label:has(input[type='checkbox'])"
+                        "label:has(input[type='checkbox'])",
+                        ".ant-checkbox",
+                        "span.ant-checkbox",
+                        "label",  # 添加通用label查找
+                        "div[class*='checkbox']",  # 查找包含checkbox的div
+                        "span[class*='checkbox']"  # 查找包含checkbox的span
                     ]
                     
                     checked = False
+                    logger.info(f"🔍 开始查找复选框...")
+                    
                     for selector in checkbox_selectors:
                         try:
-                            cb = dialog.locator(selector).first
-                            if cb.is_visible():
-                                if not cb.is_checked():
-                                    # 尝试强制点击，避免被 label 或其他元素遮挡
-                                    cb.click(force=True)
-                                    logger.info(f"✅ 已勾选删除确认复选框 (selector: {selector}, force=True)")
-                                checked = True
-                                break
-                        except:
-                            pass
+                            cbs = dialog.locator(selector).all()
+                            logger.info(f"🔍 selector='{selector}': {len(cbs)} 个元素")
+                            
+                            if len(cbs) > 0:
+                                # 尝试所有找到的元素
+                                for idx, cb in enumerate(cbs):
+                                    try:
+                                        if cb.is_visible():
+                                            cb_text = cb.inner_text() if selector != "input[type='checkbox']" else ""
+                                            logger.info(f"✅ 找到可见元素 {idx+1} (selector: {selector}, text: '{cb_text[:50]}')")
+                                            cb.click(force=True)
+                                            self.page.wait_for_timeout(800)
+                                            logger.info(f"✅ 已点击元素 {idx+1}")
+                                            checked = True
+                                            break
+                                    except Exception as e2:
+                                        logger.debug(f"点击元素 {idx+1} 失败: {e2}")
+                                
+                                if checked:
+                                    break
+                        except Exception as e:
+                            logger.debug(f"selector '{selector}' 失败: {e}")
                     
                     if not checked:
-                        # 尝试点击包含 "check" 或 "confirm" 文本的元素
+                        # 尝试点击文本元素 (特别是"I understand"相关文本)
+                        logger.info("🔍 尝试查找确认文本...")
                         try:
-                            text_cb = dialog.locator("text=/confirm|understand|check/i").first
-                            if text_cb.is_visible():
-                                text_cb.click(force=True)
-                                logger.info("✅ 点击了疑似复选框的文本元素 (force=True)")
-                        except:
-                            logger.warning("⚠️ 未找到或无法勾选复选框")
+                            label_texts = [
+                                "I understand that all associated",
+                                "I understand",
+                                "understand",
+                                "subagents will also be deleted",
+                                "confirm",
+                                "确认",
+                                "我知道",
+                                "确定删除"
+                            ]
+                            for text in label_texts:
+                                try:
+                                    # 使用contains查找
+                                    text_elem = dialog.locator(f"text=/{text}/i").first
+                                    if text_elem.count() > 0 and text_elem.is_visible():
+                                        elem_text = text_elem.inner_text()
+                                        logger.info(f"✅ 找到文本元素: '{elem_text[:50]}'")
+                                        text_elem.click(force=True)
+                                        self.page.wait_for_timeout(800)
+                                        logger.info(f"✅ 已点击文本元素")
+                                        checked = True
+                                        break
+                                except Exception as e:
+                                    logger.debug(f"文本 '{text}' 查找失败: {e}")
+                        except Exception as e:
+                            logger.debug(f"文本查找整体失败: {e}")
+                    
+                    if not checked:
+                        logger.warning("⚠️ 未找到复选框或确认元素")
 
                     confirm_button = dialog.locator(
                         "button:has-text('Delete'), button:has-text('Yes'), button:has-text('Confirm'), button:has-text('确认')"
                     ).first
                     
                     if confirm_button.is_visible():
+                        # 🔍 **详细检查按钮状态**
+                        try:
+                            is_disabled = confirm_button.is_disabled()
+                            is_enabled = confirm_button.is_enabled()
+                            aria_disabled = confirm_button.get_attribute("aria-disabled")
+                            data_disabled = confirm_button.get_attribute("data-disabled")
+                            btn_class = confirm_button.get_attribute("class")
+                            btn_text = confirm_button.inner_text()
+                            
+                            logger.info(f"🎯 确认按钮状态:")
+                            logger.info(f"   文本: '{btn_text}'")
+                            logger.info(f"   is_disabled(): {is_disabled}")
+                            logger.info(f"   is_enabled(): {is_enabled}")
+                            logger.info(f"   aria-disabled: {aria_disabled}")
+                            logger.info(f"   data-disabled: {data_disabled}")
+                            logger.info(f"   class: {btn_class}")
+                        except Exception as e:
+                            logger.warning(f"获取按钮状态失败: {e}")
+                        
                         # 等待按钮变更为可用状态 (防抖)
                         try:
                             confirm_button.wait_for(state="visible", timeout=3000)
                             if confirm_button.is_disabled():
-                                logger.info("确认按钮当前禁用，等待变为可用...")
+                                logger.warning("⚠️  确认按钮当前禁用，等待变为可用...")
                                 # 可能是由于勾选复选框的动画延迟，稍作等待
                                 self.page.wait_for_timeout(1000)
                             
                             if confirm_button.is_enabled():
                                 confirm_button.click(force=True)
-                                logger.info("✅ 已点击对话框内的确认按钮 (force=True)")
+                                logger.info("✅ 已点击第一层确认按钮 (Yes)")
                             else:
                                 logger.warning("⚠️ 确认按钮仍处于禁用状态，尝试强制点击")
                                 confirm_button.click(force=True)
+                                logger.info("✅ 已强制点击确认按钮 (禁用状态, force=True)")
                         except Exception as e:
                             logger.warning(f"点击确认按钮时出错: {e}")
                             confirm_button.click(force=True)
+                            logger.info("✅ 已强制点击确认按钮 (异常处理, force=True)")
+                        
+                        # 🆕 等待第二层确认弹窗 (可能出现)
+                        logger.info("⏳ 等待第二层确认弹窗...")
+                        self.page.wait_for_timeout(2000)
+                        
+                        # 检查是否出现第二层弹窗
+                        second_dialog = self.page.locator("role=dialog")
+                        if second_dialog.is_visible():
+                            logger.info("🔍 检测到第二层确认弹窗!")
+                            self.take_screenshot("delete_second_dialog.png")
+                            
+                            # 输出第二层弹窗内容
+                            try:
+                                second_dialog_text = second_dialog.inner_text()
+                                logger.info(f"📝 第二层弹窗文本:\n{second_dialog_text}\n")
+                                
+                                # 输出第二层弹窗HTML
+                                second_dialog_html = second_dialog.evaluate("el => el.outerHTML")
+                                logger.info(f"📄 第二层弹窗HTML (前2000字符):\n{second_dialog_html[:2000]}\n")
+                            except Exception as e:
+                                logger.warning(f"获取第二层弹窗内容失败: {e}")
+                            
+                            # 🔍 查找并勾选复选框 (第二层弹窗)
+                            logger.info("🔍 在第二层弹窗中查找复选框...")
+                            second_checked = False
+                            
+                            # 🆕 尝试多种复选框点击方式
+                            
+                            # 方式1: 直接查找checkbox input
+                            try:
+                                checkbox_input = second_dialog.locator("input[type='checkbox']").first
+                                if checkbox_input.count() > 0:
+                                    logger.info(f"✅ 找到checkbox input元素")
+                                    checkbox_input.click(force=True)
+                                    self.page.wait_for_timeout(500)
+                                    logger.info(f"✅ 已勾选复选框 (input)")
+                                    second_checked = True
+                            except Exception as e:
+                                logger.debug(f"直接点击input失败: {e}")
+                            
+                            # 方式2: 查找包含"I understand"的整行元素并点击
+                            if not second_checked:
+                                try:
+                                    # 查找包含文本的div/label/span
+                                    understand_row = second_dialog.locator("div, label, span").filter(has_text="I understand").first
+                                    if understand_row.count() > 0:
+                                        # 获取元素位置,点击左侧(复选框位置)
+                                        box = understand_row.bounding_box()
+                                        if box:
+                                            # 复选框应该在文本左边30-50px处
+                                            # 尝试多个位置点击
+                                            click_y = box['y'] + box['height'] / 2
+                                            
+                                            # 尝试点击左侧不同位置
+                                            for offset in [-50, -40, -30, -60, -70]:
+                                                click_x = box['x'] + offset
+                                                logger.info(f"🔍 尝试点击坐标: ({click_x}, {click_y})")
+                                                self.page.mouse.click(click_x, click_y)
+                                                self.page.wait_for_timeout(500)
+                                                
+                                                # 检查Delete按钮是否变为enabled
+                                                delete_btn_temp = second_dialog.locator("button:has-text('Delete')").first
+                                                if delete_btn_temp.count() > 0 and not delete_btn_temp.is_disabled():
+                                                    logger.info(f"✅ 复选框已勾选! (offset={offset})")
+                                                    second_checked = True
+                                                    break
+                                            
+                                            if not second_checked:
+                                                logger.warning(f"⚠️ 尝试多个位置点击,Delete按钮仍未启用")
+                                except Exception as e:
+                                    logger.debug(f"点击understand行失败: {e}")
+                            
+                            # 如果直接点击input失败,尝试点击包含复选框的label
+                            if not second_checked:
+                                try:
+                                    label_with_checkbox = second_dialog.locator("label").first
+                                    if label_with_checkbox.count() > 0 and label_with_checkbox.is_visible():
+                                        label_text = label_with_checkbox.inner_text()[:60]
+                                        logger.info(f"✅ 找到label元素: '{label_text}'")
+                                        label_with_checkbox.click(force=True)
+                                        self.page.wait_for_timeout(500)
+                                        logger.info(f"✅ 已点击label (触发复选框)")
+                                        second_checked = True
+                                except Exception as e:
+                                    logger.debug(f"点击label失败: {e}")
+                            
+                            # 方式3: 使用键盘Tab+Space勾选复选框
+                            if not second_checked:
+                                try:
+                                    logger.info("🔍 尝试使用键盘Tab+Space勾选复选框...")
+                                    # 按Tab键切换焦点到复选框
+                                    self.page.keyboard.press("Tab")
+                                    self.page.wait_for_timeout(300)
+                                    self.page.keyboard.press("Space")
+                                    self.page.wait_for_timeout(800)
+                                    
+                                    # 检查Delete按钮是否启用
+                                    delete_btn_check = second_dialog.locator("button:has-text('Delete')").first
+                                    if delete_btn_check.count() > 0 and not delete_btn_check.is_disabled():
+                                        logger.info(f"✅ 通过键盘成功勾选复选框!")
+                                        second_checked = True
+                                    else:
+                                        logger.debug("Tab+Space未能启用Delete按钮")
+                                except Exception as e:
+                                    logger.debug(f"键盘操作失败: {e}")
+                            
+                            # 如果还是没成功,尝试其他选择器
+                            if not second_checked:
+                                for selector in checkbox_selectors:
+                                    try:
+                                        cbs = second_dialog.locator(selector).all()
+                                        if len(cbs) > 0:
+                                            for idx, cb in enumerate(cbs):
+                                                try:
+                                                    if cb.is_visible():
+                                                        cb_text = cb.inner_text() if selector not in ["input[type='checkbox']", "[role='checkbox']"] else ""
+                                                        logger.info(f"✅ 找到元素 (selector: {selector}, text: '{cb_text[:50]}')")
+                                                        cb.click(force=True)
+                                                        self.page.wait_for_timeout(800)
+                                                        logger.info(f"✅ 已点击元素")
+                                                        second_checked = True
+                                                        break
+                                                except:
+                                                    pass
+                                            if second_checked:
+                                                break
+                                    except:
+                                        pass
+                            
+                            # 如果没找到复选框,尝试点击"I understand"文本
+                            if not second_checked:
+                                logger.info("🔍 尝试查找'I understand'文本...")
+                                try:
+                                    understand_texts = [
+                                        "I understand that all associated",
+                                        "I understand",
+                                        "understand"
+                                    ]
+                                    for text in understand_texts:
+                                        try:
+                                            text_elem = second_dialog.locator(f"text=/{text}/i").first
+                                            if text_elem.count() > 0 and text_elem.is_visible():
+                                                elem_text = text_elem.inner_text()
+                                                logger.info(f"✅ 找到确认文本: '{elem_text[:60]}'")
+                                                text_elem.click(force=True)
+                                                self.page.wait_for_timeout(800)
+                                                logger.info(f"✅ 已点击确认文本")
+                                                second_checked = True
+                                                break
+                                        except:
+                                            pass
+                                except:
+                                    pass
+                            
+                            if not second_checked:
+                                logger.warning("⚠️ 第二层弹窗未找到复选框或确认文本")
+                            
+                            # 点击第二层弹窗的Delete按钮
+                            logger.info("🔍 查找第二层弹窗的Delete按钮...")
+                            second_delete_btn = second_dialog.locator(
+                                "button:has-text('Delete'), button:has-text('Yes'), button:has-text('Confirm')"
+                            ).first
+                            
+                            if second_delete_btn.is_visible():
+                                is_disabled = second_delete_btn.is_disabled()
+                                logger.info(f"第二层Delete按钮状态: disabled={is_disabled}")
+                                
+                                if not is_disabled or second_checked:
+                                    second_delete_btn.click(force=True)
+                                    logger.info("✅ 已点击第二层弹窗的Delete按钮")
+                                    self.page.wait_for_timeout(2000)
+                                else:
+                                    logger.warning("⚠️ 第二层Delete按钮禁用且未勾选复选框,尝试强制点击")
+                                    second_delete_btn.click(force=True)
+                                    self.page.wait_for_timeout(2000)
+                            else:
+                                logger.warning("⚠️ 未找到第二层弹窗的Delete按钮")
+                        else:
+                            logger.info("ℹ️  未检测到第二层确认弹窗(可能不需要)")
                     else:
                         logger.warning("⚠️ 对话框内未找到确认按钮")
                 else:

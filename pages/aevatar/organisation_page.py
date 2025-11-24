@@ -283,7 +283,12 @@ class OrganisationPage(BasePage):
         self.utils.screenshot_step(f"after_submit_{name}")
         self.page.wait_for_timeout(2000)
         
-        # 刷新页面以验证
+        # 尝试直接验证，如果失败再刷新
+        self.switch_to_tab("Projects")
+        if self.page.locator(f"text={name}").first.is_visible():
+            return True
+            
+        logger.info("列表未更新，尝试刷新页面...")
         self.page.reload()
         self.page.wait_for_load_state("networkidle")
         self.page.wait_for_timeout(2000)
@@ -397,6 +402,14 @@ class OrganisationPage(BasePage):
         return False
 
     # ========== Member Actions ==========
+
+    @allure.step("检查成员是否存在: {email}")
+    def verify_member_exists(self, email: str) -> bool:
+        """验证成员是否存在于列表中"""
+        self.switch_to_tab("Members")
+        # 尝试刷新确保数据最新
+        # self.page.reload() # 避免频繁刷新，让测试用例决定
+        return self.page.locator(f"tr:has-text('{email}')").first.is_visible()
 
     @allure.step("邀请成员: {email}")
     def invite_member(self, email: str, role: str = "Member") -> bool:
