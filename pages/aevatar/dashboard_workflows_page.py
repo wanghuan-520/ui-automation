@@ -1281,37 +1281,27 @@ class DashboardWorkflowsPage(BasePage):
                             except Exception as e:
                                 logger.debug(f"直接点击input失败: {e}")
                             
-                            # 方式2: 查找包含"I understand"的整行元素并点击
+                            # 方式2: 直接点击包含"I understand"的整个容器/行
                             if not second_checked:
                                 try:
-                                    # 查找包含文本的div/label/span
-                                    understand_row = second_dialog.locator("div, label, span").filter(has_text="I understand").first
-                                    if understand_row.count() > 0:
-                                        # 获取元素位置,点击左侧(复选框位置)
-                                        box = understand_row.bounding_box()
-                                        if box:
-                                            # 复选框应该在文本左边30-50px处
-                                            # 尝试多个位置点击
-                                            click_y = box['y'] + box['height'] / 2
-                                            
-                                            # 尝试点击左侧不同位置
-                                            for offset in [-50, -40, -30, -60, -70]:
-                                                click_x = box['x'] + offset
-                                                logger.info(f"🔍 尝试点击坐标: ({click_x}, {click_y})")
-                                                self.page.mouse.click(click_x, click_y)
-                                                self.page.wait_for_timeout(500)
-                                                
-                                                # 检查Delete按钮是否变为enabled
-                                                delete_btn_temp = second_dialog.locator("button:has-text('Delete')").first
-                                                if delete_btn_temp.count() > 0 and not delete_btn_temp.is_disabled():
-                                                    logger.info(f"✅ 复选框已勾选! (offset={offset})")
-                                                    second_checked = True
-                                                    break
-                                            
-                                            if not second_checked:
-                                                logger.warning(f"⚠️ 尝试多个位置点击,Delete按钮仍未启用")
+                                    logger.info("🔍 尝试点击整个确认行...")
+                                    # 查找包含文本的父容器(可能是div/label包含checkbox+text)
+                                    understand_container = second_dialog.locator("*").filter(has_text="I understand that all associated").first
+                                    if understand_container.count() > 0:
+                                        logger.info(f"✅ 找到包含'I understand'的容器")
+                                        # 直接点击整个容器(可能会触发复选框)
+                                        understand_container.click(force=True)
+                                        self.page.wait_for_timeout(800)
+                                        
+                                        # 检查Delete按钮是否启用
+                                        delete_btn_check = second_dialog.locator("button:has-text('Delete')").first
+                                        if delete_btn_check.count() > 0 and not delete_btn_check.is_disabled():
+                                            logger.info(f"✅ 点击容器成功勾选复选框!")
+                                            second_checked = True
+                                        else:
+                                            logger.debug("点击容器未能启用Delete按钮,尝试其他方法")
                                 except Exception as e:
-                                    logger.debug(f"点击understand行失败: {e}")
+                                    logger.debug(f"点击容器失败: {e}")
                             
                             # 如果直接点击input失败,尝试点击包含复选框的label
                             if not second_checked:
