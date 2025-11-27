@@ -1,12 +1,13 @@
 """
 Configuration页面对象
-负责Webhook、CROS等配置管理功能
+负责DLL、CORS等配置管理功能
 """
 from playwright.sync_api import Page, Locator
 from typing import List, Dict, Optional
 import allure
 from pages.base_page import BasePage
 from utils.logger import get_logger
+from utils.page_utils import PageUtils
 
 logger = get_logger(__name__)
 
@@ -22,36 +23,46 @@ class ConfigurationPage(BasePage):
     WORKFLOWS_MENU = "text=Workflows"
     CONFIGURATION_MENU = "text=Configuration"
     
-    # Tab导航
-    WEBHOOK_TAB = "text=Webhook"
-    CROS_TAB = "text=Cros"
+    # 页面标题
+    PAGE_TITLE = "text=Configuration"
     
-    # Webhook配置元素
-    WEBHOOK_TABLE = "role=table >> nth=0"  # 第一个表格
-    WEBHOOK_CREATE_BUTTON = "button:has-text('Create')"
-    WEBHOOK_NAME_INPUT = "input[placeholder='Enter name']"
-    WEBHOOK_URL_INPUT = "input[placeholder='Enter URL']"
-    WEBHOOK_SAVE_BUTTON = "button:has-text('Save')"
-    WEBHOOK_ACTION_MENU = "combobox[cursor=pointer]"
+    # Restart services按钮（⚠️ 有bug，会导致环境挂掉）
+    RESTART_SERVICES_BUTTON = "button:has-text('Restart services')"
     
-    # CROS配置元素
-    CROS_TABLE = "role=table >> nth=0"  # 第一个表格
-    CROS_CREATE_BUTTON = "button:has-text('Create')"
-    CROS_ORIGIN_INPUT = "input[placeholder='Enter origin']"
-    CROS_SAVE_BUTTON = "button:has-text('Save')"
-    CROS_ACTION_MENU = "combobox[cursor=pointer]"
+    # ========== DLL区域元素 ==========
+    DLL_SECTION = "text=DLL"  # 简化定位器，直接使用文本
+    DLL_UPLOAD_BUTTON = "button:has-text('Upload')"  # ⚠️ 有bug，会导致环境挂掉
+    DLL_TABLE = "table >> nth=0"  # DLL表格（第一个表格）
+    DLL_TABLE_HEADERS = ["DLL File", "Created", "Created By", "Updated", "Updated By", "Status"]
+    DLL_NO_DATA = "text=No DLLs uploaded yet"
     
-    # 通用操作菜单
-    EDIT_MENU_ITEM = "text=Edit"
-    DELETE_MENU_ITEM = "text=Delete"
+    # ========== CORS区域元素 ==========
+    CORS_SECTION = "text=CORS"  # 简化定位器，直接使用文本
+    # CORS Add按钮 - 使用role定位器（与MCP探查一致）
+    CORS_ADD_BUTTON_ROLE = "role=button[name='Add']"  # 使用role定位器
+    CORS_TABLE = "table >> nth=1"  # CORS表格（第二个表格）
+    CORS_TABLE_HEADERS = ["Domain", "Created", "Created By"]
+    CORS_NO_DATA = "text=No Cross URL added yet"
     
-    # 删除确认弹窗
-    DELETE_DIALOG = "text=Delete >> ancestor::div[role='dialog']"
-    DELETE_CONFIRM_BUTTON = "button:has-text('Delete')"
-    DELETE_CANCEL_BUTTON = "button:has-text('Cancel')"
+    # CORS创建对话框（基于MCP探查结果）
+    CORS_DIALOG = "role=dialog[name='Add cross-origin domain']"  # 使用role定位器
+    CORS_DIALOG_TITLE = "role=heading[name='Add cross-origin domain']"  # 对话框标题
+    CORS_DOMAIN_INPUT = "role=textbox[name='Domain']"  # Domain输入框
+    CORS_DIALOG_ADD_BUTTON = "role=dialog >> role=button[name='Add']"  # dialog内的Add按钮
+    CORS_DIALOG_CANCEL_BUTTON = "role=dialog >> role=button[name='Cancel']"  # dialog内的Cancel按钮
+    CORS_DIALOG_CLOSE_BUTTON = "role=dialog >> role=button[name='Close']"  # dialog内的Close按钮
     
-    # 页面加载指示器
-    page_loaded_indicator = "text=Webhook"
+    # CORS操作菜单
+    CORS_MORE_OPTIONS_BUTTON = "button:has-text('More options')"
+    
+    # 删除确认弹窗（基于MCP探查结果）
+    DELETE_DIALOG = "dialog"  # 删除确认对话框
+    DELETE_DIALOG_MESSAGE = "text=Are you sure you want to delete this URL?"
+    DELETE_CONFIRM_BUTTON = "button:has-text('yes')"  # 注意：按钮显示是小写'yes'
+    DELETE_CANCEL_BUTTON = "dialog >> button:has-text('Cancel')"
+    
+    # 页面加载指示器（使用CORS区域作为加载标识，避免与侧边栏冲突）
+    page_loaded_indicator = "text=CORS"
     
     def __init__(self, page: Page):
         """
@@ -62,6 +73,7 @@ class ConfigurationPage(BasePage):
         """
         super().__init__(page)
         self.page_url = f"{self.base_url}{self.CONFIGURATION_URL}"
+        self.page_utils = PageUtils(page)
         logger.info(f"初始化Configuration页面: {self.page_url}")
     
     @allure.step("导航到Configuration页面")
@@ -79,7 +91,7 @@ class ConfigurationPage(BasePage):
             bool: 页面是否已加载
         """
         try:
-            self.page.wait_for_selector(self.WEBHOOK_TAB, timeout=5000)
+            self.page.wait_for_selector(self.PAGE_TITLE, timeout=5000)
             logger.info("Configuration页面已加载")
             return True
         except Exception as e:
@@ -124,286 +136,403 @@ class ConfigurationPage(BasePage):
         logger.warning(f"⚠️ 页面初始化超时（等待了{max_wait_seconds}秒）")
         return False
     
-    @allure.step("切换到 {tab_name} 标签页")
-    def switch_to_tab(self, tab_name: str) -> None:
+    # ========== DLL相关方法 ==========
+    # ⚠️ 注意：DLL Upload和Restart services功能有bug，会导致环境挂掉
+    # 相关测试用例应该被skip
+    
+    @allure.step("检查DLL区域是否可见")
+    def is_dll_section_visible(self) -> bool:
         """
-        切换到指定标签页
+        检查DLL区域是否可见
         
-        Args:
-            tab_name: 标签名称 (Webhook, Cros)
+        Returns:
+            bool: DLL区域是否可见
         """
-        logger.info(f"切换到 {tab_name} 标签页")
-        tab_selector = f"text={tab_name}"
-        self.click_element(tab_selector)
+        try:
+            return self.page.locator(self.DLL_SECTION).is_visible(timeout=5000)
+        except:
+            return False
+    
+    @allure.step("检查DLL Upload按钮是否可见")
+    def is_dll_upload_button_visible(self) -> bool:
+        """
+        检查DLL Upload按钮是否可见（⚠️ 不要点击，会导致环境挂掉）
+        
+        Returns:
+            bool: Upload按钮是否可见
+        """
+        return self.is_element_visible(self.DLL_UPLOAD_BUTTON, timeout=2000)
+    
+    @allure.step("检查Restart services按钮是否可见")
+    def is_restart_services_button_visible(self) -> bool:
+        """
+        检查Restart services按钮是否可见（⚠️ 不要点击，会导致环境挂掉）
+        
+        Returns:
+            bool: Restart services按钮是否可见
+        """
+        return self.is_element_visible(self.RESTART_SERVICES_BUTTON, timeout=2000)
+    
+    # ========== CORS相关方法 ==========
+    
+    @allure.step("检查CORS区域是否可见")
+    def is_cors_section_visible(self) -> bool:
+        """
+        检查CORS区域是否可见
+        
+        Returns:
+            bool: CORS区域是否可见
+        """
+        try:
+            return self.page.locator(self.CORS_SECTION).is_visible(timeout=5000)
+        except:
+            return False
+    
+    @allure.step("点击CORS Add按钮")
+    def click_cors_add_button(self) -> None:
+        """点击CORS Add按钮"""
+        logger.info("点击CORS Add按钮")
+        # 等待页面稳定
+        self.page.wait_for_timeout(1000)
+        # 使用role定位器（与MCP探查一致）
+        add_button = self.page.get_by_role('button', name='Add')
+        add_button.click()
+        logger.info("✅ Add按钮已点击")
         self.page.wait_for_timeout(1000)
     
-    # ========== Webhook相关方法 ==========
-    
-    @allure.step("获取Webhook列表")
-    def get_webhook_list(self) -> List[Dict[str, str]]:
+    @allure.step("验证CORS创建对话框是否打开")
+    def is_cors_dialog_open(self) -> bool:
         """
-        获取Webhook列表
+        验证CORS创建对话框是否打开
         
         Returns:
-            List[Dict[str, str]]: Webhook列表
+            bool: 对话框是否打开
         """
-        logger.info("获取Webhook列表")
-        webhooks = []
+        try:
+            # 等待对话框出现
+            self.page.wait_for_timeout(500)
+            return self.page.locator(self.CORS_DIALOG).is_visible(timeout=3000)
+        except:
+            return False
+    
+    # 别名方法，为了测试代码的可读性
+    def is_cors_create_dialog_visible(self) -> bool:
+        """
+        验证CORS创建对话框是否可见（别名方法）
+        
+        Returns:
+            bool: 对话框是否可见
+        """
+        return self.is_cors_dialog_open()
+    
+    @allure.step("填写CORS Domain输入框")
+    def fill_cors_domain_input(self, domain: str) -> None:
+        """
+        填写CORS创建对话框中的Domain输入框
+        
+        Args:
+            domain: 要填写的domain
+        """
+        logger.info(f"填写Domain输入框: {domain}")
+        domain_input = self.page.get_by_role('textbox', name='Domain')
+        domain_input.fill(domain)
+        self.page.wait_for_timeout(500)
+        logger.info("✅ Domain已填写")
+    
+    @allure.step("点击CORS对话框中的Add按钮")
+    def click_cors_dialog_add_button(self) -> None:
+        """点击CORS创建对话框中的Add按钮"""
+        logger.info("点击对话框中的Add按钮")
+        dialog_add_button = self.page.locator(self.CORS_DIALOG_ADD_BUTTON)
+        dialog_add_button.click()
+        logger.info("✅ Add按钮已点击")
+    
+    @allure.step("点击CORS对话框中的Cancel按钮")
+    def click_cors_dialog_cancel_button(self) -> None:
+        """点击CORS创建对话框中的Cancel按钮"""
+        logger.info("点击对话框中的Cancel按钮")
+        cancel_btn = self.page.locator("role=dialog >> button:has-text('Cancel')")
+        if cancel_btn.count() > 0 and cancel_btn.is_visible():
+            cancel_btn.click()
+            logger.info("✅ Cancel按钮已点击")
+    
+    @allure.step("获取CORS列表")
+    def get_cors_list(self) -> List[Dict[str, str]]:
+        """
+        获取CORS列表
+        
+        Returns:
+            List[Dict[str, str]]: CORS列表，每个元素包含 domain, created, created_by
+        """
+        logger.info("获取CORS列表")
+        cors_list = []
         
         try:
-            # 确保在Webhook标签页
-            self.switch_to_tab("Webhook")
-            
             # 等待表格加载
-            self.page.wait_for_selector(self.WEBHOOK_TABLE, timeout=5000)
+            self.page.wait_for_timeout(1000)
+            
+            # 检查是否有"No Cross URL added yet"
+            if self.is_element_visible(self.CORS_NO_DATA, timeout=2000):
+                logger.info("CORS列表为空")
+                return []
+            
+            # 获取CORS表格（第二个表格）
+            table = self.page.locator(self.CORS_TABLE)
+            
+            # 等待表格出现
+            if not table.is_visible(timeout=2000):
+                logger.warning("CORS表格不可见")
+                return []
             
             # 获取所有行
-            rows = self.page.query_selector_all(f"{self.WEBHOOK_TABLE} >> tbody >> tr")
-            logger.info(f"找到 {len(rows)} 个Webhook")
+            rows = table.locator("tbody >> tr").all()
+            
+            logger.info(f"找到 {len(rows)} 个CORS配置行")
             
             for row in rows:
-                cells = row.query_selector_all("td")
+                cells = row.locator("td").all()
                 if len(cells) >= 3:
-                    webhook = {
-                        "name": cells[0].text_content().strip(),
-                        "url": cells[1].text_content().strip(),
-                        "created_at": cells[2].text_content().strip()
+                    # 跳过"No Cross URL added yet"行
+                    first_cell_text = cells[0].text_content().strip()
+                    if "No Cross URL" in first_cell_text or first_cell_text == "":
+                        continue
+                    
+                    cors = {
+                        "domain": first_cell_text,
+                        "created": cells[1].text_content().strip(),
+                        "created_by": cells[2].text_content().strip()
                     }
-                    webhooks.append(webhook)
-                    logger.debug(f"Webhook信息: {webhook}")
+                    cors_list.append(cors)
+                    logger.debug(f"CORS信息: {cors}")
             
-            return webhooks
+            return cors_list
         except Exception as e:
-            logger.error(f"获取Webhook列表失败: {str(e)}")
+            logger.error(f"获取CORS列表失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             return []
     
-    @allure.step("创建Webhook: {name}, {url}")
-    def create_webhook(self, name: str, url: str) -> bool:
+    @allure.step("创建CORS: {domain}")
+    def create_cors(self, domain: str) -> bool:
         """
-        创建Webhook
+        创建CORS配置
         
         Args:
-            name: Webhook名称
-            url: Webhook URL
+            domain: 域名（例如：https://example.com）
             
         Returns:
             bool: 是否创建成功
         """
-        logger.info(f"创建Webhook: {name}, {url}")
+        logger.info(f"创建CORS: {domain}")
         
         try:
-            # 确保在Webhook标签页
-            self.switch_to_tab("Webhook")
+            # 预检查：确保没有打开的对话框
+            try:
+                dialogs = self.page.locator("dialog").all()
+                for dialog in dialogs:
+                    if dialog.is_visible(timeout=500):
+                        logger.warning("⚠️ 发现打开的对话框，尝试关闭")
+                        cancel_btn = dialog.locator("button:has-text('Cancel')")
+                        if cancel_btn.count() > 0:
+                            cancel_btn.click()
+                            self.page.wait_for_timeout(1000)
+            except:
+                pass
             
-            # 点击Create按钮
-            self.click_element(self.WEBHOOK_CREATE_BUTTON)
+            # 等待页面稳定（关键：确保JS已完全加载）
             self.page.wait_for_timeout(1000)
+            logger.info("等待页面稳定完成")
             
-            # 输入名称和URL
-            self.page.fill(self.WEBHOOK_NAME_INPUT, name)
-            self.page.fill(self.WEBHOOK_URL_INPUT, url)
+            # 使用getByRole点击Add按钮（与MCP探查一致）
+            logger.info("使用role定位器点击CORS Add按钮")
+            add_button = self.page.get_by_role('button', name='Add')
+            add_button.click()
+            logger.info("✅ Add按钮已点击")
             
-            # 点击Save
-            self.click_element(self.WEBHOOK_SAVE_BUTTON)
-            self.page.wait_for_timeout(2000)
+            self.page.wait_for_timeout(1000)  # 等待对话框动画
+            self.page_utils.screenshot_step(f"01-点击Add按钮后")
             
-            logger.info(f"Webhook '{name}' 创建成功")
+            # 等待对话框打开（使用role定位器）
+            logger.info("等待对话框出现...")
+            self.page.wait_for_selector(self.CORS_DIALOG, timeout=10000)
+            logger.info("✅ 对话框已打开")
+            self.page_utils.screenshot_step(f"02-对话框已打开")
+            
+            # 输入domain
+            logger.info(f"输入域名: {domain}")
+            domain_input = self.page.get_by_role('textbox', name='Domain')
+            domain_input.fill(domain)
+            self.page.wait_for_timeout(500)
+            self.page_utils.screenshot_step(f"03-已输入域名_{domain}")
+            
+            # 点击dialog内的Add按钮
+            logger.info("点击对话框中的Add按钮")
+            dialog_add_button = self.page.locator(self.CORS_DIALOG_ADD_BUTTON)
+            dialog_add_button.click()
+            logger.info("✅ 已点击对话框中的Add按钮")
+            
+            # 等待对话框关闭
+            try:
+                self.page.wait_for_selector(self.CORS_DIALOG, state='hidden', timeout=5000)
+                logger.info("✅ 对话框已关闭")
+            except:
+                logger.warning("⚠️ 对话框未关闭")
+            
+            # ⚠️ 重要：不需要手动刷新，列表会自动更新
+            self.page.wait_for_timeout(2000)  # 等待列表更新
+            self.page_utils.screenshot_step(f"04-CORS创建完成_{domain}")
+            
+            logger.info(f"✅ CORS '{domain}' 创建成功")
             return True
         except Exception as e:
-            logger.error(f"创建Webhook失败: {str(e)}")
+            logger.error(f"❌ 创建CORS失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.page_utils.screenshot_step(f"ERROR-创建CORS失败")
             return False
     
-    @allure.step("验证Webhook是否存在: {webhook_name}")
-    def verify_webhook_exists(self, webhook_name: str) -> bool:
+    @allure.step("验证CORS是否存在: {domain}")
+    def verify_cors_exists(self, domain: str) -> bool:
         """
-        验证Webhook是否存在于列表中
+        验证CORS是否存在于列表中
         
         Args:
-            webhook_name: Webhook名称
+            domain: 域名
             
         Returns:
-            bool: Webhook是否存在
+            bool: CORS是否存在
         """
-        logger.info(f"验证Webhook是否存在: {webhook_name}")
-        webhooks = self.get_webhook_list()
-        webhook_names = [wh["name"] for wh in webhooks]
+        logger.info(f"验证CORS是否存在: {domain}")
         
-        exists = webhook_name in webhook_names
+        # ⚠️ 不需要刷新页面，列表自动更新
+        self.page.wait_for_timeout(1000)  # 等待列表渲染
+        
+        cors_list = self.get_cors_list()
+        domains = [cors["domain"] for cors in cors_list]
+        
+        exists = domain in domains
         if exists:
-            logger.info(f"Webhook '{webhook_name}' 存在于列表中")
+            logger.info(f"✅ CORS '{domain}' 存在于列表中")
         else:
-            logger.warning(f"Webhook '{webhook_name}' 不在列表中")
+            logger.warning(f"⚠️ CORS '{domain}' 不在列表中")
+            logger.debug(f"当前CORS列表: {domains}")
         
         return exists
     
-    @allure.step("删除Webhook: {webhook_name}")
-    def delete_webhook(self, webhook_name: str) -> bool:
+    @allure.step("删除CORS: {domain}")
+    def delete_cors(self, domain: str) -> bool:
         """
-        删除Webhook
+        删除CORS配置
         
         Args:
-            webhook_name: Webhook名称
+            domain: 域名
             
         Returns:
             bool: 是否删除成功
         """
-        logger.info(f"删除Webhook: {webhook_name}")
+        logger.info(f"删除CORS: {domain}")
         
         try:
-            # 确保在Webhook标签页
-            self.switch_to_tab("Webhook")
+            # 预检查：确保没有打开的对话框
+            try:
+                dialogs = self.page.locator("dialog").all()
+                for dialog in dialogs:
+                    if dialog.is_visible(timeout=500):
+                        logger.warning("⚠️ 发现打开的对话框，尝试关闭")
+                        cancel_btn = dialog.locator("button:has-text('Cancel')")
+                        if cancel_btn.count() > 0:
+                            cancel_btn.click()
+                            self.page.wait_for_timeout(500)
+            except:
+                pass
             
-            # 找到包含该Webhook名称的行，然后点击操作菜单
-            row = self.page.locator(f"tr:has-text('{webhook_name}')")
-            action_menu = row.locator(self.WEBHOOK_ACTION_MENU)
-            action_menu.click()
+            # 等待页面稳定
+            self.page.wait_for_timeout(1000)
+            
+            # 找到包含该domain的行
+            row = self.page.locator(f"tr:has-text('{domain}')").first
+            if row.count() == 0:
+                logger.warning(f"❌ 未找到CORS: {domain}")
+                return False
+            
+            self.page_utils.screenshot_step(f"01-准备删除CORS_{domain}")
+            
+            # 找到该行的More options按钮（使用更鲁棒的方式）
+            logger.info(f"查找 '{domain}' 行的More options按钮")
+            more_options_button = row.get_by_role('button', name='More options')
+            
+            # 等待按钮可见
+            more_options_button.wait_for(state='visible', timeout=5000)
+            logger.info("More options按钮已可见")
+            
+            more_options_button.click()
+            self.page.wait_for_timeout(1000)
+            logger.info("✅ 已点击More options按钮")
+            self.page_utils.screenshot_step(f"02-点击More_options_{domain}")
+            
+            # 直接使用getByText查找Delete（更简单鲁棒）
+            logger.info("查找Delete菜单项...")
+            
+            # 等待菜单出现
             self.page.wait_for_timeout(500)
             
-            # 点击Delete菜单项
-            self.click_element(self.DELETE_MENU_ITEM)
-            self.page.wait_for_timeout(1000)
+            # 使用get_by_text直接查找Delete选项（不限定在dialog中）
+            delete_option = self.page.get_by_text("Delete", exact=True)
             
-            # 确认删除
+            if delete_option.count() > 0:
+                delete_option.click()
+                logger.info("✅ 成功点击Delete菜单项")
+            else:
+                # 如果没找到，尝试在dialog中查找
+                dialogs = self.page.locator("dialog").all()
+                delete_clicked = False
+                for dialog in dialogs:
+                    try:
+                        if not dialog.is_visible():
+                            continue
+                        delete_btn = dialog.get_by_text("Delete", exact=True)
+                        if delete_btn.count() > 0:
+                            delete_btn.click()
+                            delete_clicked = True
+                            logger.info("✅ 在dialog中找到并点击Delete")
+                            break
+                    except Exception as e:
+                        logger.debug(f"在dialog中查找Delete失败: {e}")
+                        continue
+                
+                if not delete_clicked:
+                    raise Exception("❌ 未找到Delete菜单项")
+            
+            self.page.wait_for_timeout(1000)
+            self.page_utils.screenshot_step(f"03-点击Delete菜单项_{domain}")
+            
+            # 等待删除确认弹窗（增加timeout）
+            self.page.wait_for_selector(self.DELETE_DIALOG_MESSAGE, timeout=10000)
+            logger.info("删除确认对话框已显示")
+            self.page_utils.screenshot_step(f"04-删除确认弹窗_{domain}")
+            
+            # 点击Yes确认删除
             self.click_element(self.DELETE_CONFIRM_BUTTON)
-            self.page.wait_for_timeout(2000)
+            logger.info("已点击Yes确认删除")
             
-            logger.info(f"Webhook '{webhook_name}' 已删除")
+            # 等待对话框关闭
+            try:
+                self.page.wait_for_selector(self.DELETE_DIALOG, state='detached', timeout=5000)
+                logger.info("✅ 删除确认对话框已关闭")
+            except:
+                logger.warning("⚠️ 删除确认对话框未关闭")
+            
+            # ⚠️ 重要：不需要手动刷新，列表会自动更新
+            self.page.wait_for_timeout(1000)  # 等待列表更新
+            self.page_utils.screenshot_step(f"05-CORS删除完成_{domain}")
+            
+            logger.info(f"✅ CORS '{domain}' 已删除")
             return True
         except Exception as e:
-            logger.error(f"删除Webhook失败: {str(e)}")
-            return False
-    
-    # ========== CROS相关方法 ==========
-    
-    @allure.step("获取CROS列表")
-    def get_cros_list(self) -> List[Dict[str, str]]:
-        """
-        获取CROS列表
-        
-        Returns:
-            List[Dict[str, str]]: CROS列表
-        """
-        logger.info("获取CROS列表")
-        cros_list = []
-        
-        try:
-            # 切换到CROS标签页
-            self.switch_to_tab("Cros")
-            
-            # 等待表格加载
-            self.page.wait_for_selector(self.CROS_TABLE, timeout=5000)
-            
-            # 获取所有行
-            rows = self.page.query_selector_all(f"{self.CROS_TABLE} >> tbody >> tr")
-            logger.info(f"找到 {len(rows)} 个CROS配置")
-            
-            for row in rows:
-                cells = row.query_selector_all("td")
-                if len(cells) >= 2:
-                    cros = {
-                        "origin": cells[0].text_content().strip(),
-                        "created_at": cells[1].text_content().strip()
-                    }
-                    cros_list.append(cros)
-                    logger.debug(f"CROS信息: {cros}")
-            
-            return cros_list
-        except Exception as e:
-            logger.error(f"获取CROS列表失败: {str(e)}")
-            return []
-    
-    @allure.step("创建CROS: {origin}")
-    def create_cros(self, origin: str) -> bool:
-        """
-        创建CROS配置
-        
-        Args:
-            origin: 源地址
-            
-        Returns:
-            bool: 是否创建成功
-        """
-        logger.info(f"创建CROS: {origin}")
-        
-        try:
-            # 切换到CROS标签页
-            self.switch_to_tab("Cros")
-            
-            # 点击Create按钮
-            self.click_element(self.CROS_CREATE_BUTTON)
-            self.page.wait_for_timeout(1000)
-            
-            # 输入origin
-            self.page.fill(self.CROS_ORIGIN_INPUT, origin)
-            
-            # 点击Save
-            self.click_element(self.CROS_SAVE_BUTTON)
-            self.page.wait_for_timeout(2000)
-            
-            logger.info(f"CROS '{origin}' 创建成功")
-            return True
-        except Exception as e:
-            logger.error(f"创建CROS失败: {str(e)}")
-            return False
-    
-    @allure.step("验证CROS是否存在: {origin}")
-    def verify_cros_exists(self, origin: str) -> bool:
-        """
-        验证CROS是否存在于列表中
-        
-        Args:
-            origin: 源地址
-            
-        Returns:
-            bool: CROS是否存在
-        """
-        logger.info(f"验证CROS是否存在: {origin}")
-        cros_list = self.get_cros_list()
-        origins = [cros["origin"] for cros in cros_list]
-        
-        exists = origin in origins
-        if exists:
-            logger.info(f"CROS '{origin}' 存在于列表中")
-        else:
-            logger.warning(f"CROS '{origin}' 不在列表中")
-        
-        return exists
-    
-    @allure.step("删除CROS: {origin}")
-    def delete_cros(self, origin: str) -> bool:
-        """
-        删除CROS配置
-        
-        Args:
-            origin: 源地址
-            
-        Returns:
-            bool: 是否删除成功
-        """
-        logger.info(f"删除CROS: {origin}")
-        
-        try:
-            # 切换到CROS标签页
-            self.switch_to_tab("Cros")
-            
-            # 找到包含该origin的行，然后点击操作菜单
-            row = self.page.locator(f"tr:has-text('{origin}')")
-            action_menu = row.locator(self.CROS_ACTION_MENU)
-            action_menu.click()
-            self.page.wait_for_timeout(500)
-            
-            # 点击Delete菜单项
-            self.click_element(self.DELETE_MENU_ITEM)
-            self.page.wait_for_timeout(1000)
-            
-            # 确认删除
-            self.click_element(self.DELETE_CONFIRM_BUTTON)
-            self.page.wait_for_timeout(2000)
-            
-            logger.info(f"CROS '{origin}' 已删除")
-            return True
-        except Exception as e:
-            logger.error(f"删除CROS失败: {str(e)}")
+            logger.error(f"❌ 删除CORS失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.page_utils.screenshot_step(f"ERROR-删除CORS失败")
             return False
     
     # ========== 通用方法 ==========
@@ -441,4 +570,3 @@ class ConfigurationPage(BasePage):
             logger.warning(f"URL不包含预期路径: {expected_path}, 当前URL: {current_url}")
         
         return contains
-

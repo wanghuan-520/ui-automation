@@ -22,6 +22,13 @@ def browser(browser_type):
     yield browser
     browser.close()
 
+@pytest.fixture(scope="class")
+def class_browser(browser_type):
+    """为整个测试类创建共享的browser实例"""
+    browser = browser_type.launch()
+    yield browser
+    browser.close()
+
 @pytest.fixture(scope="function")
 def browser_context_args(browser_context_args):
     """自定义browser context参数"""
@@ -30,6 +37,20 @@ def browser_context_args(browser_context_args):
         "viewport": {"width": 1920, "height": 1080},
         "ignore_https_errors": True,
     }
+
+@pytest.fixture(scope="class")
+def shared_page(class_browser):
+    """
+    Class级别的page fixture，用于所有测试共享同一个页面
+    适用于需要保持登录状态的测试套件
+    """
+    context = class_browser.new_context(
+        viewport={"width": 1920, "height": 1080},
+        ignore_https_errors=True
+    )
+    page = context.new_page()
+    yield page
+    context.close()
 
 @pytest.fixture(autouse=True)
 def test_info(request):

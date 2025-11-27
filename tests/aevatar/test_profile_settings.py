@@ -8,6 +8,7 @@ from playwright.sync_api import Page
 from pages.aevatar.localhost_email_login_page import LocalhostEmailLoginPage
 from pages.aevatar.profile_settings_page import ProfileSettingsPage
 from utils.logger import get_logger
+from utils.page_utils import PageUtils
 
 logger = get_logger(__name__)
 
@@ -17,28 +18,55 @@ logger = get_logger(__name__)
 class TestProfileSettings:
     """Profile/Settings页面功能测试类"""
     
-    @pytest.fixture(autouse=True)
-    def setup(self, page: Page):
+    @pytest.fixture(autouse=True, scope="class")
+    def setup_class(self, shared_page: Page):
         """
-        测试前置设置 - 自动登录并导航到Profile页面
-        
-        Args:
-            page: Playwright页面对象
+        测试类级别前置设置 - 所有测试共享一次登录
+        优点：大幅缩短执行时间
+        注意：测试间需要注意数据隔离
         """
-        logger.info("开始测试前置设置")
-        self.page = page
+        logger.info("=" * 80)
+        logger.info("🔐 开始登录 (整个测试类共享)")
+        logger.info("=" * 80)
         
-        # 登录
-        login_page = LocalhostEmailLoginPage(page)
+        self.page = shared_page
+        self.page_utils = PageUtils(shared_page)
+        
+        # 登录 - 整个测试类只执行一次
+        login_page = LocalhostEmailLoginPage(shared_page)
         login_page.navigate()
+        self.page_utils.screenshot_step("01-导航到登录页")
+        
         login_page.login_with_email("haylee@test.com", "Wh520520!")
         assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
+        self.page_utils.screenshot_step("02-登录完成")
         
         # 初始化Profile页面对象
-        self.profile_page = ProfileSettingsPage(page)
+        self.profile_page = ProfileSettingsPage(shared_page)
         self.profile_page.navigate()
+        self.page_utils.screenshot_step("03-进入Profile页面")
         
-        logger.info("测试前置设置完成")
+        logger.info("=" * 80)
+        logger.info("✅ 登录完成，所有测试将共享此会话")
+        logger.info("=" * 80)
+    
+    @pytest.fixture(autouse=True, scope="function")
+    def setup_method(self, shared_page: Page):
+        """
+        每个测试方法执行前的设置
+        确保每个测试都有正确的页面对象
+        """
+        if not hasattr(self, 'page'):
+            self.page = shared_page
+            self.page_utils = PageUtils(shared_page)
+            self.profile_page = ProfileSettingsPage(shared_page)
+        
+        # 确保在Profile页面
+        if "/profile" not in self.page.url:
+            self.profile_page.navigate()
+            self.page.wait_for_timeout(1000)
+        
+        logger.info("🧪 测试方法前置设置完成")
     
     @pytest.mark.smoke
     @pytest.mark.p0
@@ -304,20 +332,41 @@ class TestProfileSettings:
 class TestProfileSettingsIntegration:
     """Profile/Settings集成测试类"""
     
-    @pytest.fixture(autouse=True)
-    def setup(self, page: Page):
-        """测试前置设置"""
-        self.page = page
+    @pytest.fixture(autouse=True, scope="class")
+    def setup_class(self, shared_page: Page):
+        """
+        测试类级别前置设置 - 所有测试共享一次登录
+        """
+        logger.info("=" * 80)
+        logger.info("🔐 开始登录 (整个测试类共享)")
+        logger.info("=" * 80)
         
-        # 登录
-        login_page = LocalhostEmailLoginPage(page)
+        self.page = shared_page
+        
+        # 登录 - 整个测试类只执行一次
+        login_page = LocalhostEmailLoginPage(shared_page)
         login_page.navigate()
         login_page.login_with_email("haylee@test.com", "Wh520520!")
         assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
         
         # 初始化Profile页面对象
-        self.profile_page = ProfileSettingsPage(page)
+        self.profile_page = ProfileSettingsPage(shared_page)
         self.profile_page.navigate()
+        
+        logger.info("=" * 80)
+        logger.info("✅ 登录完成，所有测试将共享此会话")
+        logger.info("=" * 80)
+    
+    @pytest.fixture(autouse=True, scope="function")
+    def setup_method(self, shared_page: Page):
+        """
+        每个测试方法执行前的设置
+        """
+        if not hasattr(self, 'page'):
+            self.page = shared_page
+            self.profile_page = ProfileSettingsPage(shared_page)
+        
+        logger.info("🧪 测试方法前置设置完成")
     
     @pytest.mark.integration
     @allure.title("集成测试: 登录到Profile完整流程")
@@ -347,22 +396,42 @@ class TestProfileSettingsIntegration:
 class TestProfileSettingsRegression:
     """Profile设置回归测试类"""
     
-    @pytest.fixture(autouse=True)
-    def setup(self, page: Page):
-        """测试前置设置"""
-        self.page = page
+    @pytest.fixture(autouse=True, scope="class")
+    def setup_class(self, shared_page: Page):
+        """
+        测试类级别前置设置 - 所有测试共享一次登录
+        注意：使用staging环境账号
+        """
+        logger.info("=" * 80)
+        logger.info("🔐 开始登录 (整个测试类共享) - staging账号")
+        logger.info("=" * 80)
         
-        # 登录（使用staging环境账号）
-        login_page = LocalhostEmailLoginPage(page)
+        self.page = shared_page
+        
+        # 登录 - 使用staging环境账号，整个测试类只执行一次
+        login_page = LocalhostEmailLoginPage(shared_page)
         login_page.navigate()
         login_page.login_with_email("aevatarwh1@teml.net", "Wh520520!")
         assert login_page.is_login_successful(), f"登录失败，当前URL: {login_page.get_current_url()}"
         
         # 初始化Profile页面对象
-        self.profile_page = ProfileSettingsPage(page)
+        self.profile_page = ProfileSettingsPage(shared_page)
         self.profile_page.navigate()
         
-        logger.info("回归测试前置设置完成")
+        logger.info("=" * 80)
+        logger.info("✅ 登录完成，所有测试将共享此会话")
+        logger.info("=" * 80)
+    
+    @pytest.fixture(autouse=True, scope="function")
+    def setup_method(self, shared_page: Page):
+        """
+        每个测试方法执行前的设置
+        """
+        if not hasattr(self, 'page'):
+            self.page = shared_page
+            self.profile_page = ProfileSettingsPage(shared_page)
+        
+        logger.info("🧪 测试方法前置设置完成")
     
     @pytest.mark.regression
     @pytest.mark.p1

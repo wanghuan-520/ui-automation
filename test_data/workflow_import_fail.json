@@ -1,0 +1,12 @@
+{
+  "name": "demo_d77409",
+  "properties": {
+    "workflowNodeUnitList": [
+      {
+        "nodeId": "e5ffe57c-ad1d-43c1-9c9b-fba6c8f15fd3",
+        "nextNodeId": "ce7e6842-afed-4452-bd3c-c20c22022a0f"
+      }
+    ],
+    "name": "demo_d77409"
+  }
+}

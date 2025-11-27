@@ -5,6 +5,7 @@ Dashboard Workflows页面对象
 from playwright.sync_api import Page, Locator
 from typing import List, Dict, Optional
 import allure
+from re import compile, IGNORECASE
 from pages.base_page import BasePage
 from utils.logger import get_logger
 
@@ -184,7 +185,7 @@ class DashboardWorkflowsPage(BasePage):
             error_toast = self.page.locator("text=/Error|Failed/i")
             if error_toast.is_visible():
                 logger.error("❌ 导入时出现错误提示")
-                self.take_screenshot("import_failed.png")
+                self.take_screenshot("import_failed.png", step_name="❌ 导入失败错误提示")
                 return False
                 
             logger.info("✅ 导入操作完成")
@@ -192,7 +193,7 @@ class DashboardWorkflowsPage(BasePage):
             
         except Exception as e:
             logger.error(f"❌ 导入Workflow失败: {str(e)}")
-            self.take_screenshot("workflow_import_error.png")
+            self.take_screenshot("workflow_import_error.png", step_name="❌ 导入异常截图")
             return False
 
     @allure.step("获取工作流列表")
@@ -433,139 +434,163 @@ class DashboardWorkflowsPage(BasePage):
     @allure.step("重命名Workflow: {new_name}")
     def rename_workflow(self, new_name: str) -> bool:
         """
-        在编辑器中重命名Workflow
+        在编辑器中重命名Workflow (点击右上角铅笔图标)
         """
         logger.info(f"尝试重命名Workflow为: {new_name}")
+        # 默认名称
+        current_name = "untitled_workflow"
+        
         try:
-            # 策略1: 检查是否是点击弹窗式重命名 (根据dump的HTML)
-            # 查找显示名称的元素 (通常是 default project / untitled_workflow)
-            # 结构: button/div[aria-haspopup='dialog'] -> div(text)
+            # 策略: 点击Header区域的铅笔图标
+            # 通常在右上角或标题旁边
             
-            # 尝试找到包含 'untitled' 的可点击元素
-            name_trigger = self.page.locator("div[aria-haspopup='dialog']").filter(has_text="untitled_workflow").first
-            if not name_trigger.is_visible():
-                name_trigger = self.page.locator("div[aria-haspopup='dialog']").filter(has_text="Untitled").first
-                
-            if not name_trigger.is_visible():
-                # 尝试通过文本直接查找
-                name_trigger = self.page.locator("text=untitled_workflow").first
-            
-            # 如果找到的是隐藏元素（例如响应式布局中的移动端元素），尝试遍历所有匹配项
-            if not name_trigger.is_visible():
-                logger.info("首个匹配元素不可见，尝试查找所有匹配项中可见的一个...")
-                candidates = self.page.locator("div[aria-haspopup='dialog']").filter(has_text="untitled_workflow").all()
-                for cand in candidates:
-                    if cand.is_visible():
-                        name_trigger = cand
-                        logger.info("✅ 找到可见的重命名触发元素")
-                        break
-
-            if name_trigger.is_visible():
-                logger.info("✅ 找到重命名触发元素，点击打开弹窗")
-                name_trigger.click()
-                
-                # 等待弹窗出现
-                dialog = self.page.wait_for_selector("div[role='dialog']", timeout=3000)
-                if dialog:
-                    logger.info("✅ 重命名弹窗已打开")
-                    self.take_screenshot("rename_dialog_opened.png")
-                    
-                    # 查找输入框
-                    input_el = self.page.locator("div[role='dialog'] input[type='text']").first
-                    if not input_el.is_visible():
-                        logger.error("❌ 输入框不可见！")
-                        self.take_screenshot("rename_input_not_visible.png")
-                        return False
-                    
-                    logger.info(f"✅ 找到输入框，开始填写: {new_name}")
-                    input_el.click()
-                    self.page.wait_for_timeout(300)
-                    
-                    # 清空后再填写，确保不会残留旧值
-                    input_el.fill("")
-                    self.page.wait_for_timeout(200)
-                    input_el.type(new_name, delay=50) # 使用type而不是fill，模拟人工输入
-                    self.page.wait_for_timeout(300)
-                    
-                    logger.info(f"✅ 已填写完毕: {new_name}")
-                    self.take_screenshot("rename_after_fill.png")
-                        
-                    # 查找确认按钮
-                    save_selectors = [
-                        "div[role='dialog'] button:has-text('Save')",
-                        "div[role='dialog'] button:has-text('Rename')",
-                        "div[role='dialog'] button:has-text('Confirm')",
-                        "div[role='dialog'] button[type='submit']",
-                        "div[role='dialog'] button:has-text('保存')",
-                        "div[role='dialog'] button:has-text('确定')"
-                    ]
-                    
-                    save_btn = None
-                    for selector in save_selectors:
-                        btn = self.page.locator(selector).first
-                        if btn.is_visible():
-                            save_btn = btn
-                            break
-                    
-                    if save_btn:
-                        save_btn.click()
-                        logger.info(f"✅ 点击了重命名确认按钮: {save_btn}")
-                    else:
-                        # 如果没找到按钮，直接按Enter
-                        logger.info("未找到保存按钮，尝试按Enter键提交")
-                        self.page.keyboard.press("Enter")
-                    
-                    # 关键修改：不等待弹窗关闭，而是等待Header中名称出现
-                    # 这样更健壮，即使弹窗卡住，只要名称更新了就算成功
-                    logger.info(f"等待编辑器头部显示新名称: {new_name}")
-                    try:
-                        # 等待Header中出现新名称（更可靠的成功指标）
-                        self.page.wait_for_selector(f"header:has-text('{new_name}')", timeout=5000)
-                        logger.info(f"✅ Workflow已重命名为: {new_name}")
-                        
-                        # 如果弹窗还在，主动关闭它（点击外部或ESC）
-                        if self.page.locator("div[role='dialog']").is_visible():
-                            logger.info("弹窗仍可见，尝试按ESC关闭")
-                            self.page.keyboard.press("Escape")
-                            self.page.wait_for_timeout(500)
-                        
-                        return True
-                    except:
-                        logger.warning(f"⚠️ 未检测到Header中的新名称: {new_name}")
-                        # 最后的重试：再次按Enter并等待
-                        self.page.keyboard.press("Enter")
-                        self.page.wait_for_timeout(2000)
-                        
-                        # 再次检查Header
-                        try:
-                            self.page.wait_for_selector(f"header:has-text('{new_name}')", timeout=3000)
-                            logger.info(f"✅ 重试后检测到新名称: {new_name}")
-                            # 关闭可能残留的弹窗
-                            self.page.keyboard.press("Escape")
-                            return True
-                        except:
-                            logger.error(f"❌ 重命名最终失败: {new_name}")
-                            self.take_screenshot("rename_header_not_updated.png")
-                            return False
-            
-            # 策略2: 原有的输入框查找逻辑 (回退)
-            logger.info("尝试直接查找输入框 (策略2)...")
-            inputs = [
-                "input[value*='Untitled']",
-                "input[placeholder='Workflow Name']",
-                "header input[type='text']"
+            # 1. 尝试定位铅笔图标/编辑按钮
+            # 常见图标选择器
+            edit_icon_selectors = [
+                "header button:has(.lucide-pencil)",
+                "header svg.lucide-pencil",
+                "header button[aria-label='Edit name']",
+                "header button[aria-label='Rename']",
+                ".anticon-edit"
             ]
             
-            for selector in inputs:
-                if self.page.locator(selector).first.is_visible():
-                    self.page.locator(selector).first.fill(new_name)
-                    self.page.keyboard.press("Enter")
-                    logger.info(f"✅ 通过输入框重命名为: {new_name}")
-                    return True
+            edit_btn = None
+            
+            # 策略0: 诱导交互 - 悬停在名称上 (可能触发图标显示)
+            try:
+                # 使用更宽泛的定位器查找名称
+                name_locator = self.page.locator(f"text={current_name}").first
+                if name_locator.is_visible():
+                    name_locator.hover()
+                    self.page.wait_for_timeout(500) # 等待图标动画
+            except:
+                pass
 
-            logger.warning("⚠️ 无法定位Workflow重命名元素")
-            self.take_screenshot("rename_failed.png")
-            return False
+            for selector in edit_icon_selectors:
+                try:
+                    btn = self.page.locator(selector).first
+                    if btn.is_visible():
+                        edit_btn = btn
+                        logger.info(f"✅ 找到可能的编辑按钮: {selector}")
+                        break
+                except:
+                    pass
+            
+            # 策略2: 查找Workflow名称旁边的按钮
+            if not edit_btn:
+                try:
+                    # 找到名称元素 (h1, h2, span等)
+                    name_patterns = ["untitled_workflow", "Renamed_", "Untitled"]
+                    for pattern in name_patterns:
+                        name_el = self.page.locator(f"header :text-matches('{pattern}', 'i')").first
+                        if name_el.is_visible():
+                            # 查找相邻的按钮 (通常在右侧)
+                            parent = name_el.locator("..")
+                            sibling_btn = parent.locator("button").first
+                            if sibling_btn.is_visible():
+                                edit_btn = sibling_btn
+                                break
+                except Exception:
+                    pass
+
+            if edit_btn:
+                edit_btn.click()
+                logger.info("✅ 点击了编辑图标")
+                self.page.wait_for_timeout(1000)
+            else:
+                # 回退：尝试直接点击标题文本
+                logger.warning("⚠️ 未找到明确的铅笔图标，尝试点击标题文本")
+                title_text = self.page.locator("header").filter(has_text=compile(r"untitled_workflow|Renamed", IGNORECASE)).last
+                if title_text.is_visible():
+                    title_text.click()
+                    logger.info("✅ 点击了标题文本")
+            
+            # 2. 处理弹窗或输入框
+            # 检查是否有弹窗出现
+            dialog = self.page.locator("role=dialog").last
+            if dialog.is_visible(timeout=3000):
+                logger.info("✅ 重命名弹窗已打开")
+                self.take_screenshot("rename_dialog_opened.png")
+                
+                # 查找输入框
+                input_selectors = [
+                    "input[type='text']",
+                    "input:not([type='hidden'])",
+                    "input",
+                    "textarea"
+                ]
+                
+                input_el = None
+                for selector in input_selectors:
+                    try:
+                        el = dialog.locator(selector).first
+                        if el.count() > 0 and el.is_visible():
+                            input_el = el
+                            logger.info(f"✅ 找到输入框 (selector: {selector})")
+                            break
+                    except:
+                        pass
+                
+                if not input_el:
+                    logger.error("❌ 弹窗内未找到输入框")
+                    return False
+                
+                # 输入新名称
+                input_el.click()
+                input_el.fill("")
+                self.page.wait_for_timeout(200)
+                input_el.fill(new_name)
+                logger.info(f"✅ 已输入新名称: {new_name}")
+                
+                # 点击确认/保存
+                save_btn = dialog.locator("button:has-text('Save'), button:has-text('Confirm'), button:has-text('Rename'), button:has-text('OK')").first
+                if save_btn.is_visible():
+                    save_btn.click()
+                    logger.info("✅ 点击了保存按钮")
+                else:
+                    input_el.press("Enter")
+                    self.page.wait_for_timeout(500)
+                    # 尝试触发 blur
+                    self.page.mouse.click(0, 0)
+                    logger.info("按Enter键并点击空白处以提交")
+                    
+            else:
+                # 可能是内联编辑 (Inline Edit)
+                logger.info("未检测到弹窗，检查是否为内联输入框...")
+                inline_input = self.page.locator("header input[type='text']").first
+                if inline_input.is_visible():
+                    inline_input.click()
+                    inline_input.fill("")
+                    inline_input.fill(new_name)
+                    inline_input.press("Enter")
+                    logger.info("✅ 已通过内联输入框修改并回车")
+                else:
+                    logger.error("❌ 既无弹窗也无内联输入框，重命名失败")
+                    return False
+
+            # 3. 验证修改结果 (Header文本更新)
+            logger.info("等待验证重命名结果...")
+            self.page.wait_for_timeout(2000)
+            
+            # 尝试1: 直接检查Header
+            try:
+                self.page.wait_for_selector(f"header:has-text('{new_name}')", timeout=3000)
+                logger.info(f"✅ 验证成功: Header已显示新名称 {new_name}")
+                return True
+            except:
+                logger.warning(f"⚠️ Header未即时显示新名称，尝试刷新页面验证...")
+                
+            # 尝试2: 刷新页面后检查
+            try:
+                self.page.reload()
+                self.wait_for_page_load()
+                self.page.wait_for_selector(f"header:has-text('{new_name}')", timeout=5000)
+                logger.info(f"✅ 刷新后验证成功: Header已显示新名称 {new_name}")
+                return True
+            except:
+                logger.error(f"❌ 验证失败: 刷新后Header仍未显示新名称 {new_name}")
+                self.take_screenshot("rename_verification_failed.png")
+                return False
                 
         except Exception as e:
             logger.warning(f"重命名失败: {e}")
@@ -1035,6 +1060,162 @@ class DashboardWorkflowsPage(BasePage):
             
         return count
 
+    @allure.step("验证Agent配置校验")
+    def validate_agent_config_error(self) -> bool:
+        """
+        验证Agent配置弹窗的必填项校验
+        
+        Returns:
+            bool: 是否成功检测到错误提示
+        """
+        logger.info("验证Agent配置校验")
+        try:
+            # 查找保存按钮
+            save_btn = self.page.locator("button:has-text('Save'), button:has-text('Confirm')").first
+            if not save_btn.is_visible():
+                logger.warning("未找到配置弹窗的保存按钮")
+                return False
+                
+            # 清空所有输入框以触发必填校验
+            inputs = self.page.locator("textarea, input[type='text']").all()
+            for inp in inputs:
+                try:
+                    if inp.is_visible():
+                        inp.fill("")
+                except:
+                    pass
+            
+            # 点击保存
+            save_btn.click()
+            self.page.wait_for_timeout(1000)
+            
+            # 检查错误提示
+            # 常见错误提示选择器
+            error_selectors = [
+                ".text-red-500", 
+                "[role='alert']", 
+                ".ant-form-item-explain-error", 
+                "text=Required", 
+                "text=必填"
+            ]
+            
+            for selector in error_selectors:
+                if self.page.locator(selector).count() > 0 and self.page.locator(selector).first.is_visible():
+                    logger.info(f"✅ 检测到配置校验错误提示: {selector}")
+                    self.take_screenshot("config_validation_error.png")
+                    return True
+                    
+            logger.warning("⚠️ 未检测到明显的校验错误提示")
+            return False
+            
+        except Exception as e:
+            logger.error(f"验证配置校验失败: {e}")
+            return False
+
+    @allure.step("在列表页导出Workflow: {workflow_name}")
+    def export_workflow_from_list(self, workflow_name: str) -> bool:
+        """
+        在列表页通过操作菜单导出Workflow
+        
+        Args:
+            workflow_name: Workflow名称
+            
+        Returns:
+            bool: 是否成功触发导出
+        """
+        logger.info(f"在列表页导出Workflow: {workflow_name}")
+        try:
+            # 点击操作菜单
+            self.click_workflow_action_menu(workflow_name)
+            
+            # 查找Export选项 (全局查找，支持忽略大小写)
+            # 菜单通常渲染在DOM根部，所以不应限制在row内
+            export_selectors = [
+                "role=menuitem", 
+                ".ant-dropdown-menu-item",
+                "div[role='menu'] div",
+                "li[role='menuitem']"
+            ]
+            
+            export_btn = None
+            for selector in export_selectors:
+                try:
+                    # 使用正则匹配 Export 文本
+                    btn = self.page.locator(selector).filter(has_text=compile(r"Export", IGNORECASE)).first
+                    if btn.is_visible():
+                        export_btn = btn
+                        break
+                except:
+                    pass
+            
+            # 如果上面没找到，尝试最通用的文本查找
+            if not export_btn:
+                export_btn = self.page.locator("text=/^Export$/i").first
+                
+            if export_btn and export_btn.is_visible():
+                # 监听下载事件
+                with self.page.expect_download(timeout=10000) as download_info:
+                    export_btn.click()
+                    
+                download = download_info.value
+                path = download.path()
+                logger.info(f"✅ Workflow导出成功: {path}")
+                
+                # 等待菜单关闭
+                self.page.keyboard.press("Escape")
+                return True
+            else:
+                logger.warning("⚠️ 操作菜单中未找到Export选项")
+                # 截图以辅助调试
+                self.take_screenshot("export_menu_item_not_found.png")
+                self.page.keyboard.press("Escape")
+                return False
+                
+        except Exception as e:
+            logger.error(f"列表页导出Workflow失败: {e}")
+            self.take_screenshot("export_workflow_failed.png")
+            return False
+
+    @allure.step("复制Workflow: {workflow_name}")
+    def duplicate_workflow(self, workflow_name: str) -> bool:
+        """
+        复制指定的Workflow
+        
+        Args:
+            workflow_name: Workflow名称
+            
+        Returns:
+            bool: 是否复制成功
+        """
+        logger.info(f"复制Workflow: {workflow_name}")
+        try:
+            # 点击操作菜单
+            self.click_workflow_action_menu(workflow_name)
+            
+            # 点击Duplicate选项
+            # 增强查找逻辑
+            duplicate_btn = self.page.locator("text=/Duplicate|Copy/i").first
+            
+            if duplicate_btn.is_visible():
+                duplicate_btn.click()
+                logger.info("✅ 已点击Duplicate按钮")
+                
+                # 等待复制完成 (列表刷新或提示出现)
+                self.page.wait_for_timeout(2000) 
+                
+                # 关闭可能残留的菜单
+                self.page.keyboard.press("Escape")
+                return True
+            else:
+                logger.warning("⚠️ 操作菜单中未找到Duplicate选项")
+                self.take_screenshot("duplicate_menu_item_not_found.png")
+                self.page.keyboard.press("Escape")
+                return False
+                
+        except Exception as e:
+            logger.error(f"复制Workflow失败: {e}")
+            return False
+
     @allure.step("删除指定Workflow: {workflow_name}")
     def delete_workflow(self, workflow_name: str) -> bool:
         """
@@ -1066,7 +1247,7 @@ class DashboardWorkflowsPage(BasePage):
             # 确认删除
             # 限制在对话框内查找确认按钮，防止误点
             try:
-                dialog = self.page.locator("role=dialog")
+                dialog = self.page.locator("role=dialog").last
                 if dialog.is_visible():
                     # 截图以便调试
                     self.take_screenshot("delete_confirmation_dialog.png")
@@ -1247,7 +1428,7 @@ class DashboardWorkflowsPage(BasePage):
                         self.page.wait_for_timeout(2000)
                         
                         # 检查是否出现第二层弹窗
-                        second_dialog = self.page.locator("role=dialog")
+                        second_dialog = self.page.locator("role=dialog").last
                         if second_dialog.is_visible():
                             logger.info("🔍 检测到第二层确认弹窗!")
                             self.take_screenshot("delete_second_dialog.png")

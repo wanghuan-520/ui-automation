@@ -152,19 +152,20 @@ class BasePage(ABC):
         """
         return self.utils.is_element_visible(selector, timeout)
     
-    def take_screenshot(self, file_name: str = None):
+    def take_screenshot(self, file_name: str = None, step_name: str = "截图"):
         """
         截取页面截图
         
         Args:
             file_name: 截图文件名，为None时自动生成
+            step_name: Allure报告中的步骤名称
         """
         if not file_name:
             from datetime import datetime
             file_name = f"{self.__class__.__name__}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         
         file_path = f"reports/screenshots/{file_name}"
-        self.utils.take_screenshot(file_path)
+        self.utils.take_screenshot(file_path, step_name=step_name)
     
     def assert_element_visible(self, selector: str, error_message: str = None):
         """
