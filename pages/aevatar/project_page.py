@@ -12,22 +12,28 @@ class ProjectPage(BasePage):
     PROJECT_URL_DIRECT = "/profile/projects"
     PROJECT_URL_SETTINGS = "/dashboard/settings/project"
     
-    # 元素选择器
+    # 元素选择器 - 基于Playwright MCP探查结果更新
     TAB_MEMBERS = "div[role='tab']:has-text('Members')"
     TAB_ROLES = "div[role='tab']:has-text('Roles')"
     TAB_SETTINGS = "div[role='tab']:has-text('Settings')" # Project Name edit likely here
     
-    # Common
-    CREATE_BUTTON = "button:has-text('Create'), button:has-text('Add'), button:has-text('Invite'), button:has-text('New')"
+    # Common - 基于实际UI更新
+    CREATE_BUTTON = "button:has-text('Add new member'), button:has-text('Add Role')"
+    ADD_NEW_MEMBER_BUTTON = "button:has-text('Add new member')"
+    ADD_ROLE_BUTTON = "button:has-text('Add Role')"
     
     # Member
     MEMBER_EMAIL_INPUT = "input[type='email'], input[placeholder*='Email'], input[name='email']"
+    MEMBER_TABLE = "table"
     
     # Role
     ROLE_NAME_INPUT = "input[placeholder*='Role Name'], input[name='roleName'], input[name='name']"
+    ROLE_TABLE = "table"
+    EDIT_PERMISSIONS_BUTTON = "button:has-text('Edit permissions')"
     
-    # Project Settings
-    PROJECT_NAME_INPUT = "input[name='name'], input[placeholder*='Project Name'], input[placeholder*='Name'], input:not([disabled]):not([type='hidden']):not([placeholder*='Search'])"
+    # Project Settings - General页面
+    PROJECT_NAME_INPUT = "role=textbox >> nth=0"  # 第一个textbox是Project Name
+    DOMAIN_NAME_INPUT = "role=textbox[disabled]"  # 第二个textbox是Domain Name（禁用）
     SAVE_BUTTON = "button:has-text('Save')"
 
     def __init__(self, page: Page):
@@ -145,57 +151,124 @@ class ProjectPage(BasePage):
         self.switch_to_tab("General")
         
         logger.info(f"编辑 Project Name: {new_name}")
-        if not self.utils.safe_fill(self.PROJECT_NAME_INPUT, new_name):
-            return False
-            
-        if not self.utils.safe_click(self.SAVE_BUTTON):
-            return False
-            
-        self.page.wait_for_timeout(2000)
+        self.utils.screenshot_step(f"edit_project_name_before_{new_name}")
         
-        # 验证
-        return self.page.locator(self.PROJECT_NAME_INPUT).input_value() == new_name
+        # 使用role定位器更准确
+        project_name_input = self.page.locator(self.PROJECT_NAME_INPUT).first
+        if not project_name_input.is_visible():
+            logger.error("Project Name输入框不可见")
+            self.utils.screenshot_step("project_name_input_not_found")
+            return False
+        
+        # 清空并输入新名称
+        project_name_input.fill("")
+        project_name_input.fill(new_name)
+        self.page.wait_for_timeout(500)
+        self.utils.screenshot_step(f"edit_project_name_filled_{new_name}")
+        
+        # 点击Save按钮
+        save_btn = self.page.get_by_role('button', name='Save')
+        if not save_btn.is_visible():
+            logger.error("Save按钮不可见")
+            self.utils.screenshot_step("save_button_not_found")
+            return False
+        
+        save_btn.click()
+        self.page.wait_for_timeout(2000)
+        self.utils.screenshot_step(f"edit_project_name_after_save_{new_name}")
+        
+        # 验证（刷新页面后检查）
+        self.page.reload()
+        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_timeout(2000)
+        self.switch_to_tab("General")
+        
+        actual_name = self.page.locator(self.PROJECT_NAME_INPUT).first.input_value()
+        is_success = actual_name == new_name
+        self.utils.screenshot_step(f"edit_project_name_verification_{new_name}_{is_success}")
+        
+        if is_success:
+            logger.info(f"✅ Project Name 已成功修改为: {new_name}")
+        else:
+            logger.error(f"❌ Project Name 修改失败，期望: {new_name}, 实际: {actual_name}")
+        
+        return is_success
 
     # ========== Member Actions ==========
 
     @allure.step("添加 Project Member: {email}")
     def add_member(self, email: str) -> bool:
-        """添加项目成员"""
+        """
+        添加项目成员
+        
+        注意：此对话框是从Organisation已有成员中选择，不是输入新邮箱
+        """
         self.switch_to_tab("Members")
         
-        logger.info(f"添加成员: {email}")
-        if not self.utils.safe_click(self.CREATE_BUTTON):
+        logger.info(f"添加成员: {email} (从Organisation成员列表中选择)")
+        self.utils.screenshot_step(f"add_member_before_{email}")
+        
+        # 点击"Add new member"按钮
+        add_button = self.page.get_by_role('button', name='Add new member')
+        if not add_button.is_visible():
+            logger.error("Add new member按钮不可见")
+            self.utils.screenshot_step("add_member_button_not_found")
+            return False
+        
+        add_button.click()
+        self.page.wait_for_timeout(1000)
+        self.utils.screenshot_step("add_member_dialog_opened")
+        
+        try:
+            # 点击Email Address combobox打开下拉列表
+            logger.info("点击Email Address combobox")
+            email_combobox = self.page.get_by_role('combobox', name='Email Address')
+            if email_combobox.is_visible():
+                email_combobox.click()
+                self.page.wait_for_timeout(1000)
+                self.utils.screenshot_step("add_member_combobox_expanded")
+                
+                # 从listbox中选择对应的邮箱
+                logger.info(f"从列表中选择邮箱: {email}")
+                option = self.page.get_by_role('option', name=email)
+                if option.is_visible():
+                    option.click()
+                    self.page.wait_for_timeout(500)
+                    self.utils.screenshot_step(f"add_member_email_selected_{email}")
+                    logger.info(f"✅ 已选择邮箱: {email}")
+                else:
+                    logger.error(f"列表中找不到邮箱: {email}")
+                    self.utils.screenshot_step(f"add_member_email_not_found_{email}")
+                    
+                    # 尝试打印所有可用选项
+                    try:
+                        options = self.page.locator('[role="option"]').all()
+                        logger.info(f"可用选项数量: {len(options)}")
+                        for i, opt in enumerate(options[:5]):
+                            logger.info(f"Option {i}: {opt.text_content().strip()}")
+                    except:
+                        pass
+                    
+                    return False
+            else:
+                logger.error("Email Address combobox不可见")
+                return False
+                
+        except Exception as e:
+            logger.error(f"选择邮箱时出错: {e}")
+            self.utils.screenshot_step("add_member_select_error")
             return False
             
-        # Project Member add often uses a dropdown or simple input
-        # Try input first
-        if not self.utils.safe_fill(self.MEMBER_EMAIL_INPUT, email):
-             # Try clicking dropdown if input fails
-             pass
-            
-        # 提交
-        logger.info("提交邀请...")
-        confirm_selectors = [
-            "div[role='dialog'] button[type='submit']",
-            "div[role='dialog'] button:has-text('Add')",
-            "div[role='dialog'] button:has-text('Invite')",
-            "div[role='dialog'] button:has-text('Confirm')"
-        ]
-        
-        clicked = False
-        for selector in confirm_selectors:
-            btn = self.page.locator(selector).first
-            if btn.is_visible():
-                logger.info(f"点击确认按钮: {selector}")
-                btn.click()
-                clicked = True
-                break
-                
-        if not clicked:
-            logger.info("未找到确认按钮，尝试按 Enter")
-            self.page.keyboard.press("Enter")
-            
-        self.page.wait_for_timeout(2000)
+        # 点击Add按钮
+        logger.info("点击Add按钮...")
+        add_btn = self.page.get_by_role('dialog').get_by_role('button', name='Add')
+        if add_btn.is_visible():
+            add_btn.click()
+            self.page.wait_for_timeout(2000)
+            self.utils.screenshot_step(f"add_member_after_submit_{email}")
+        else:
+            logger.error("Add按钮不可见")
+            return False
         
         # 验证
         logger.info("刷新页面验证成员列表...")
@@ -205,6 +278,7 @@ class ProjectPage(BasePage):
         self.switch_to_tab("Members")
         
         if self.page.locator(f"text={email}").first.is_visible():
+            logger.info(f"✅ 成员 {email} 已成功添加")
             return True
             
         # 检查页面内容
@@ -230,21 +304,46 @@ class ProjectPage(BasePage):
         """删除项目成员"""
         self.switch_to_tab("Members")
         
+        self.utils.screenshot_step(f"delete_member_before_{email}")
+        
         row = self.page.locator(f"tr:has-text('{email}')").first
         if not row.is_visible():
+            logger.info(f"成员 {email} 不存在，无需删除")
             return True
-            
-        menu_btn = row.locator("button").last
-        menu_btn.click()
-        self.page.wait_for_timeout(500)
         
-        if self.utils.safe_click("text=Delete") or self.utils.safe_click("text=Remove"):
-             self.page.wait_for_timeout(500)
-             if self.utils.safe_click("button:has-text('Yes')") or self.utils.safe_click("button:has-text('Confirm')"):
-                 self.page.wait_for_timeout(2000)
-                 self.page.reload()
-                 self.switch_to_tab("Members")
-                 return not self.page.locator(f"tr:has-text('{email}')").first.is_visible()
+        # 根据MCP观察，没有删除按钮的删除功能（只有Owner，无法删除）
+        # 但如果存在多个成员，会有删除按钮
+        try:
+            menu_btn = row.locator("button").last
+            menu_btn.click()
+            self.page.wait_for_timeout(500)
+            self.utils.screenshot_step(f"delete_member_menu_opened_{email}")
+            
+            if self.utils.safe_click("text=Delete") or self.utils.safe_click("text=Remove"):
+                 self.page.wait_for_timeout(500)
+                 self.utils.screenshot_step(f"delete_member_confirm_dialog_{email}")
+                 
+                 if self.utils.safe_click("button:has-text('Yes')") or self.utils.safe_click("button:has-text('Confirm')"):
+                     self.page.wait_for_timeout(2000)
+                     self.utils.screenshot_step(f"delete_member_after_confirm_{email}")
+                     
+                     self.page.reload()
+                     self.page.wait_for_load_state("networkidle")
+                     self.switch_to_tab("Members")
+                     
+                     is_deleted = not self.page.locator(f"tr:has-text('{email}')").first.is_visible()
+                     self.utils.screenshot_step(f"delete_member_verification_{email}_{is_deleted}")
+                     
+                     if is_deleted:
+                         logger.info(f"✅ 成员 {email} 已成功删除")
+                     else:
+                         logger.warning(f"⚠️ 成员 {email} 删除后仍然可见")
+                     
+                     return is_deleted
+        except Exception as e:
+            logger.warning(f"删除成员 {email} 时出错: {e}")
+            self.utils.screenshot_step(f"delete_member_error_{email}")
+        
         return False
 
     # ========== Role Actions ==========
@@ -255,30 +354,49 @@ class ProjectPage(BasePage):
         self.switch_to_tab("Roles")
         
         logger.info(f"添加角色: {name}")
-        if not self.utils.safe_click(self.CREATE_BUTTON):
+        self.utils.screenshot_step(f"add_role_before_{name}")
+        
+        # 点击"Add Role"按钮
+        add_button = self.page.get_by_role('button', name='Add Role')
+        if not add_button.is_visible():
+            logger.error("Add Role按钮不可见")
+            self.utils.screenshot_step("add_role_button_not_found")
             return False
+        
+        add_button.click()
+        self.page.wait_for_timeout(1000)
+        self.utils.screenshot_step("add_role_dialog_opened")
             
+        # 输入角色名称
         if not self.utils.safe_fill(self.ROLE_NAME_INPUT, name):
+            logger.error("输入角色名称失败")
+            self.utils.screenshot_step("add_role_name_input_failed")
             return False
+        
+        self.utils.screenshot_step(f"add_role_name_filled_{name}")
             
         # 提交
         logger.info("提交表单...")
         confirm_selectors = [
-            "div[role='dialog'] button[type='submit']",
-            "div[role='dialog'] button:has-text('Create')",
-            "div[role='dialog'] button:has-text('Confirm')"
+            "role=dialog >> button:has-text('Create')",
+            "role=dialog >> button:has-text('Confirm')",
+            "role=dialog >> button[type='submit']"
         ]
         
         clicked = False
         for selector in confirm_selectors:
-            btn = self.page.locator(selector).first
-            if btn.is_visible():
-                logger.info(f"点击确认按钮: {selector}")
-                btn.click()
-                clicked = True
-                break
+            try:
+                btn = self.page.locator(selector).first
+                if btn.is_visible():
+                    logger.info(f"点击确认按钮: {selector}")
+                    btn.click()
+                    clicked = True
+                    break
+            except:
+                continue
                 
         if not clicked:
+            logger.info("未找到确认按钮，尝试按 Enter")
             self.page.keyboard.press("Enter")
             
         # 等待弹窗消失
@@ -288,34 +406,55 @@ class ProjectPage(BasePage):
             if dialog.is_visible():
                 dialog.wait_for(state="hidden", timeout=5000)
             logger.info("✅ 弹窗已关闭")
-        except:
-             self.utils.screenshot_step(f"add_proj_role_dialog_error_{name}")
-             return False
+        except Exception as e:
+             logger.warning(f"弹窗关闭异常: {e}")
+             self.utils.screenshot_step(f"add_role_dialog_error_{name}")
 
         self.page.wait_for_timeout(2000)
+        self.utils.screenshot_step(f"add_role_after_submit_{name}")
         
         # 刷新页面以验证
+        logger.info("刷新页面验证角色列表...")
         self.page.reload()
         self.page.wait_for_load_state("networkidle")
         self.page.wait_for_timeout(2000)
         
         self.switch_to_tab("Roles")
-        return self.page.locator(f"text={name}").first.is_visible()
+        is_created = self.page.locator(f"text={name}").first.is_visible()
+        self.utils.screenshot_step(f"add_role_verification_{name}_{is_created}")
+        
+        if is_created:
+            logger.info(f"✅ 角色 {name} 已成功创建")
+        else:
+            logger.error(f"❌ 角色 {name} 创建失败")
+        
+        return is_created
 
     @allure.step("编辑 Project Role 权限: {role_name}")
     def edit_role_permissions(self, role_name: str) -> bool:
         """编辑角色权限"""
         self.switch_to_tab("Roles")
         
+        self.utils.screenshot_step(f"edit_role_permissions_before_{role_name}")
+        
         row = self.page.locator(f"tr:has-text('{role_name}')").first
         if not row.is_visible():
+            logger.error(f"角色 {role_name} 不存在")
             return False
             
-        edit_perm_btn = row.locator("button:has-text('Edit permissions')").first
-        if edit_perm_btn.is_visible():
-            edit_perm_btn.click()
-            self.page.wait_for_timeout(1000)
-            
+        # 点击"Edit permissions"按钮
+        edit_perm_btn = row.get_by_role('button', name='Edit permissions').first
+        if not edit_perm_btn.is_visible():
+            logger.error(f"角色 {role_name} 的Edit permissions按钮不可见")
+            self.utils.screenshot_step(f"edit_permissions_button_not_found_{role_name}")
+            return False
+        
+        edit_perm_btn.click()
+        self.page.wait_for_timeout(1000)
+        self.utils.screenshot_step(f"edit_permissions_dialog_opened_{role_name}")
+        
+        # 尝试授予所有权限
+        try:
             grant_all = self.page.locator("text=/grant all/i").first
             if grant_all.is_visible():
                  checkbox = grant_all.locator("..").locator("input[type='checkbox']").first
@@ -324,10 +463,26 @@ class ProjectPage(BasePage):
                  else:
                      if not checkbox.is_checked():
                          checkbox.click()
-                         
-                 self.utils.safe_click(self.SAVE_BUTTON)
-                 self.page.wait_for_timeout(1000)
-                 return True
+                 
+                 self.page.wait_for_timeout(500)
+                 self.utils.screenshot_step(f"edit_permissions_grant_all_{role_name}")
+                 
+                 # 点击Save按钮
+                 save_btn = self.page.get_by_role('button', name='Save')
+                 if save_btn.is_visible():
+                     save_btn.click()
+                     self.page.wait_for_timeout(1000)
+                     self.utils.screenshot_step(f"edit_permissions_after_save_{role_name}")
+                     logger.info(f"✅ 角色 {role_name} 权限编辑成功")
+                     return True
+                 else:
+                     self.utils.safe_click(self.SAVE_BUTTON)
+                     self.page.wait_for_timeout(1000)
+                     return True
+        except Exception as e:
+            logger.error(f"编辑角色权限时出错: {e}")
+            self.utils.screenshot_step(f"edit_permissions_error_{role_name}")
+        
         return False
 
     @allure.step("删除 Project Role: {name}")
@@ -335,22 +490,50 @@ class ProjectPage(BasePage):
         """删除项目角色"""
         self.switch_to_tab("Roles")
         
+        self.utils.screenshot_step(f"delete_role_before_{name}")
+        
         row = self.page.locator(f"tr:has-text('{name}')").first
         if not row.is_visible():
+            logger.info(f"角色 {name} 不存在，无需删除")
             return True
-            
-        menu_btn = row.locator("button").last
-        if "Edit permissions" in menu_btn.text_content() or "":
-             menu_btn = row.locator("button:not(:has-text('Edit permissions'))").last
-             
-        menu_btn.click()
-        self.page.wait_for_timeout(500)
         
-        if self.utils.safe_click("text=Delete"):
+        try:
+            # 根据MCP观察，删除按钮是最后一个button（三个点图标）
+            menu_btn = row.locator("button").last
+            
+            # 确保不是"Edit permissions"按钮
+            if "Edit permissions" in menu_btn.text_content():
+                 # 如果最后一个是Edit permissions，说明可能没有删除按钮（如Owner角色）
+                 logger.warning(f"角色 {name} 可能没有删除按钮")
+                 return False
+             
+            menu_btn.click()
             self.page.wait_for_timeout(500)
-            if self.utils.safe_click("button:has-text('Yes')") or self.utils.safe_click("button:has-text('Confirm')"):
-                self.page.wait_for_timeout(2000)
-                self.page.reload()
-                self.switch_to_tab("Roles")
-                return not self.page.locator(f"tr:has-text('{name}')").first.is_visible()
+            self.utils.screenshot_step(f"delete_role_menu_opened_{name}")
+            
+            if self.utils.safe_click("text=Delete"):
+                self.page.wait_for_timeout(500)
+                self.utils.screenshot_step(f"delete_role_confirm_dialog_{name}")
+                
+                if self.utils.safe_click("button:has-text('Yes')") or self.utils.safe_click("button:has-text('Confirm')"):
+                    self.page.wait_for_timeout(2000)
+                    self.utils.screenshot_step(f"delete_role_after_confirm_{name}")
+                    
+                    self.page.reload()
+                    self.page.wait_for_load_state("networkidle")
+                    self.switch_to_tab("Roles")
+                    
+                    is_deleted = not self.page.locator(f"tr:has-text('{name}')").first.is_visible()
+                    self.utils.screenshot_step(f"delete_role_verification_{name}_{is_deleted}")
+                    
+                    if is_deleted:
+                        logger.info(f"✅ 角色 {name} 已成功删除")
+                    else:
+                        logger.warning(f"⚠️ 角色 {name} 删除后仍然可见")
+                    
+                    return is_deleted
+        except Exception as e:
+            logger.error(f"删除角色 {name} 时出错: {e}")
+            self.utils.screenshot_step(f"delete_role_error_{name}")
+        
         return False

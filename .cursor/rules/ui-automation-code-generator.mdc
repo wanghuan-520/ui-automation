@@ -68,36 +68,84 @@ logger = get_logger(__name__)
 class Test[PageName]:
     """[页面名称]功能测试类"""
     
+    @pytest.fixture(scope="session")
+    def logged_in_session(self, page: Page):
+        """会话级别的登录状态fixture - 提高执行效率"""
+        from pages.login_page import LoginPage
+        login_page = LoginPage(page)
+        # 执行登录操作（仅一次）
+        login_page.login(username="test_user", password="test_pass")
+        yield page
+        # 会话结束时清理
+    
     @pytest.fixture(autouse=True)
-    def setup(self, page: Page):
-        """测试前置设置"""
-        self.page = page
-        self.[page_name]_page = [PageName]Page(page)
+    def setup(self, logged_in_session: Page):
+        """测试前置设置 - 复用登录状态"""
+        self.page = logged_in_session
+        self.[page_name]_page = [PageName]Page(logged_in_session)
         self.test_data = DataManager.get_test_data("[data_file]", "[test_case]")
+        self.test_id = ""  # 用于截图命名
     
     @pytest.mark.smoke
     @pytest.mark.ui
     def test_@test_case_name:
         """[测试用例描述]"""
-        logger.info("开始测试[测试用例描述]")
+        self.test_id = "TC_[case_id]"
+        logger.info(f"开始测试: {self.test_id} - [测试用例描述]")
         
-        # 测试步骤实现
+        # 关键步骤1: 导航到页面
+        self.[page_name]_page.screenshot(f"{self.test_id}_step1_before_navigate")
         self.[page_name]_page.navigate()
+        self.[page_name]_page.screenshot(f"{self.test_id}_step1_after_navigate")
+        
+        # 检查点1: 页面加载验证
         assert self.[page_name]_page.is_loaded(), "页面未正确加载"
+        assert self.[page_name]_page.is_element_visible(self.[page_name]_page.page_loaded_indicator), "页面主元素不可见"
         
-        # 更多测试步骤...
+        # 关键步骤2: 执行核心操作
+        self.[page_name]_page.screenshot(f"{self.test_id}_step2_before_action")
+        # 执行具体操作
+        result = self.[page_name]_page.[action_method](param1, param2)
+        self.[page_name]_page.screenshot(f"{self.test_id}_step2_after_action")
         
-        logger.info("[测试用例描述]测试通过")
+        # 检查点2: 操作结果验证
+        assert result is not None, "操作未返回预期结果"
+        assert self.[page_name]_page.is_element_visible("[success_indicator]"), "成功提示未显示"
+        
+        # 检查点3: 数据一致性验证
+        actual_value = self.[page_name]_page.get_element_text("[result_element]")
+        expected_value = self.test_data.get("expected_result")
+        assert actual_value == expected_value, f"数据不匹配: 期望{expected_value}, 实际{actual_value}"
+        
+        # 检查点4: 业务逻辑验证
+        assert self.[page_name]_page.get_current_url().endswith("[expected_path]"), "页面跳转错误"
+        
+        logger.info(f"{self.test_id} 测试通过")
     
     @pytest.mark.parametrize("test_data", [
-        {"field1": "value1", "field2": "value2"},
-        {"field1": "value3", "field2": "value4"},
+        {"field1": "value1", "field2": "value2", "expected": "result1"},
+        {"field1": "value3", "field2": "value4", "expected": "result2"},
     ])
     def test_[test_case_name]_with_data(self, test_data):
-        """数据驱动测试"""
-        logger.info(f"使用数据执行测试: {test_data}")
-        # 实现数据驱动测试逻辑
-        pass
+        """数据驱动测试 - 包含截图和检查点"""
+        self.test_id = f"TC_[case_id]_data_{test_data['field1']}"
+        logger.info(f"开始数据驱动测试: {self.test_id}")
+        
+        # 操作前截图
+        self.[page_name]_page.screenshot(f"{self.test_id}_before")
+        
+        # 执行操作
+        # ... 测试逻辑 ...
+        
+        # 操作后截图
+        self.[page_name]_page.screenshot(f"{self.test_id}_after")
+        
+        # 多层次检查点
+        assert condition1, "检查点1失败"
+        assert condition2, "检查点2失败"
+        assert condition3, "检查点3失败"
+        
+        logger.info(f"{self.test_id} 数据驱动测试通过")
 ```
 
 ### 3. 测试数据生成
@@ -159,6 +207,9 @@ class Test[PageName]:
 - 添加适当的pytest标记
 - 实现断言和验证逻辑
 - 集成数据驱动测试
+- **添加关键步骤截图**：在每个关键操作前后调用截图方法
+- **实现严格检查点**：每个测试用例至少包含3-4个验证点（UI元素、数据、业务逻辑）
+- **优化登录状态**：使用session级别的fixture共享登录状态
 
 ### 4. 生成测试数据
 - 创建有效数据集
@@ -228,6 +279,59 @@ test_data:
 - 模块化设计
 - 易于扩展和修改
 
+### 4. 截图和检查点强制要求 ⭐
+#### 4.1 截图机制
+- **强制要求**：每个测试用例的关键步骤前后必须进行截图
+- **截图命名规范**：`{test_case_id}_step{N}_{before|after}_{action_name}`
+- **截图时机**：
+  - 页面导航前后
+  - 表单填写前后
+  - 按钮点击前后
+  - 数据验证前后
+- **实现方式**：
+  ```python
+  # 在关键步骤前后调用
+  self.[page_name]_page.screenshot(f"{test_id}_before_action")
+  # 执行操作
+  self.[page_name]_page.screenshot(f"{test_id}_after_action")
+  ```
+
+#### 4.2 严格检查点机制
+- **强制要求**：每个测试用例至少包含3-4个检查点
+- **检查点层次**：
+  1. **UI元素检查**：元素存在性、可见性、状态
+  2. **数据验证检查**：输入/输出数据一致性
+  3. **业务逻辑检查**：业务规则、页面跳转、提示信息
+  4. **状态检查**：按钮状态、表单状态、页面状态
+- **实现方式**：
+  ```python
+  # 多层次检查点
+  assert self.is_element_visible(element), "UI元素检查失败"
+  assert actual_value == expected_value, "数据验证失败"
+  assert current_url.endswith(expected_path), "业务逻辑检查失败"
+  assert self.is_element_enabled(button), "状态检查失败"
+  ```
+
+#### 4.3 登录状态共享策略 ⭐
+- **优先原则**：默认使用session级别的登录状态
+- **实现方式**：
+  ```python
+  @pytest.fixture(scope="session")
+  def logged_in_session(self, page: Page):
+      """会话级别的登录fixture - 仅登录一次"""
+      login_page = LoginPage(page)
+      login_page.login(username, password)
+      yield page
+  ```
+- **适用场景**：
+  - 需要登录后才能访问的功能测试
+  - 连续执行的测试套件
+  - 回归测试场景
+- **特殊处理**：
+  - 需要不同用户的测试用例使用参数化
+  - 不依赖登录的测试独立执行
+  - 登录状态失效时的重新登录机制
+
 ## 集成指南
 
 ### 1. 框架集成
@@ -256,8 +360,36 @@ python run_tests.py --tests tests/test_[page_name].py --html-report
 
 ## 输出要求
 1. 生成完整的页面对象文件
-2. 生成对应的测试用例文件
+2. 生成对应的测试用例文件（包含截图和检查点）
 3. 生成测试数据文件
 4. 更新相关配置文件
 5. 提供执行和验证建议
 6. 生成代码使用说明
+
+## 代码生成检查清单 ✅
+
+在生成代码后，确认以下内容：
+
+### 截图机制检查
+- [ ] 每个测试用例都包含关键步骤截图
+- [ ] 截图命名符合规范：`{test_id}_step{N}_{before|after}_{action}`
+- [ ] 截图调用在操作前后正确放置
+- [ ] 截图方法正确继承自BasePage
+
+### 检查点机制检查
+- [ ] 每个测试用例至少包含3-4个检查点
+- [ ] 检查点覆盖UI元素、数据、业务逻辑、状态
+- [ ] 断言信息清晰明确
+- [ ] 检查点在关键步骤后立即执行
+
+### 登录状态共享检查
+- [ ] 使用session级别的登录fixture
+- [ ] 测试用例正确引用logged_in_session
+- [ ] 不需要登录的测试用例独立声明
+- [ ] 登录失效处理机制完善
+
+### 代码质量检查
+- [ ] 符合PEP 8规范
+- [ ] 包含完整的注释和文档字符串
+- [ ] 异常处理完善
+- [ ] 日志记录完整

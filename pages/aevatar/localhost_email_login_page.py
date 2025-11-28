@@ -23,6 +23,15 @@ class LocalhostEmailLoginPage(BasePage):
     BACK_BUTTON = "button:has-text('Back'), [aria-label*='back']"
     EDIT_EMAIL_BUTTON = "text=Edit, button:has-text('Edit')"
     
+    # 第三方登录按钮
+    GOOGLE_LOGIN_BUTTON = "button:has-text('Google')"
+    GITHUB_LOGIN_BUTTON = "button:has-text('Github')"
+    
+    # 底部链接
+    WEBSITE_LINK = "a[href='https://aevatar.ai']"
+    GITHUB_LINK = "a[href*='github.com/aevatarAI']"
+    DOCS_LINK = "a[href*='whitepaper']"
+    
     # 页面加载指示器
     page_loaded_indicator = "input[type='email'], input[type='password']"
     
@@ -305,4 +314,133 @@ class LocalhostEmailLoginPage(BasePage):
             bool: 是否登录成功
         """
         return self.is_login_successful(timeout)
+    
+    def click_google_login(self) -> bool:
+        """
+        点击Google登录按钮
+        
+        Returns:
+            bool: 是否点击成功
+        """
+        try:
+            logger.info("点击Google登录按钮")
+            self.page.click(self.GOOGLE_LOGIN_BUTTON)
+            self.page.wait_for_timeout(2000)
+            logger.info("Google登录按钮点击成功")
+            return True
+        except Exception as e:
+            logger.error(f"点击Google登录按钮失败: {str(e)}")
+            return False
+    
+    def click_github_login(self) -> bool:
+        """
+        点击Github登录按钮
+        
+        Returns:
+            bool: 是否点击成功
+        """
+        try:
+            logger.info("点击Github登录按钮")
+            self.page.click(self.GITHUB_LOGIN_BUTTON)
+            self.page.wait_for_timeout(2000)
+            logger.info("Github登录按钮点击成功")
+            return True
+        except Exception as e:
+            logger.error(f"点击Github登录按钮失败: {str(e)}")
+            return False
+    
+    def click_website_link(self) -> Optional[str]:
+        """
+        点击Website链接
+        
+        Returns:
+            Optional[str]: 新打开页面的URL，失败返回None
+        """
+        try:
+            logger.info("点击Website链接")
+            with self.page.expect_popup() as popup_info:
+                self.page.click(self.WEBSITE_LINK)
+            popup = popup_info.value
+            popup_url = popup.url
+            logger.info(f"Website链接打开成功: {popup_url}")
+            popup.close()
+            return popup_url
+        except Exception as e:
+            logger.error(f"点击Website链接失败: {str(e)}")
+            return None
+    
+    def click_github_link(self) -> Optional[str]:
+        """
+        点击Github链接
+        
+        Returns:
+            Optional[str]: 新打开页面的URL，失败返回None
+        """
+        try:
+            logger.info("点击Github链接")
+            with self.page.expect_popup() as popup_info:
+                self.page.click(self.GITHUB_LINK)
+            popup = popup_info.value
+            popup_url = popup.url
+            logger.info(f"Github链接打开成功: {popup_url}")
+            popup.close()
+            return popup_url
+        except Exception as e:
+            logger.error(f"点击Github链接失败: {str(e)}")
+            return None
+    
+    def click_docs_link(self) -> Optional[str]:
+        """
+        点击Docs链接
+        
+        Returns:
+            Optional[str]: 新打开页面的URL，失败返回None
+        """
+        try:
+            logger.info("点击Docs链接")
+            with self.page.expect_popup() as popup_info:
+                self.page.click(self.DOCS_LINK)
+            popup = popup_info.value
+            popup_url = popup.url
+            logger.info(f"Docs链接打开成功: {popup_url}")
+            popup.close()
+            return popup_url
+        except Exception as e:
+            logger.error(f"点击Docs链接失败: {str(e)}")
+            return False
+    
+    def get_loading_state(self) -> bool:
+        """
+        检查登录按钮是否处于加载状态
+        
+        Returns:
+            bool: 是否处于加载状态
+        """
+        try:
+            button = self.page.locator(self.LOGIN_BUTTON).first
+            is_disabled = button.is_disabled()
+            aria_busy = button.get_attribute("aria-busy")
+            is_loading = is_disabled or aria_busy == "true"
+            logger.info(f"登录按钮加载状态: {is_loading}")
+            return is_loading
+        except Exception as e:
+            logger.error(f"检查加载状态失败: {str(e)}")
+            return False
+    
+    def press_enter_in_password(self) -> bool:
+        """
+        在密码框中按Enter键提交
+        
+        Returns:
+            bool: 是否按键成功
+        """
+        try:
+            logger.info("在密码框按Enter键")
+            self.page.locator(self.PASSWORD_INPUT).first.press("Enter")
+            self.page.wait_for_timeout(2000)
+            logger.info("Enter键提交成功")
+            return True
+        except Exception as e:
+            logger.error(f"Enter键提交失败: {str(e)}")
+            return False
 

@@ -3,114 +3,184 @@
     {
       "email": "haylee@test.com",
       "password": "Wh520520!",
-      "description": "正常测试用户账号"
-    }
-  ],
-  "invalid_emails": [
-    {
-      "email": "invalid-email",
-      "expected_error": "邮箱格式不正确"
-    },
-    {
-      "email": "test@",
-      "expected_error": "邮箱格式不正确"
-    },
-    {
-      "email": "@domain.com",
-      "expected_error": "邮箱格式不正确"
-    },
-    {
-      "email": "test @domain.com",
-      "expected_error": "邮箱格式不正确"
-    },
-    {
-      "email": "",
-      "expected_error": "请输入邮箱"
+      "description": "有效用户-主测试账号"
     }
   ],
   "invalid_passwords": [
     {
       "email": "haylee@test.com",
       "password": "WrongPassword123!",
-      "expected_error": "密码错误"
-    },
-    {
-      "email": "haylee@test.com",
-      "password": "",
-      "expected_error": "请输入密码"
+      "expected_error": "邮箱或密码错误"
     }
   ],
   "unregistered_users": [
     {
       "email": "nonexistent@test.com",
       "password": "AnyPassword123!",
-      "expected_error": "用户不存在"
-    },
-    {
-      "email": "notregistered@example.com",
-      "password": "TestPass456!",
-      "expected_error": "用户不存在"
+      "expected_error": "邮箱或密码错误"
     }
   ],
-  "boundary_passwords": [
+  "invalid_email_formats": [
     {
-      "description": "单字符密码",
-      "password": "a"
+      "email": "invalid-email",
+      "password": "TestPassword123!",
+      "expected_error": "邮箱格式不正确"
     },
     {
-      "description": "超长密码",
-      "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "email": "test@",
+      "password": "TestPassword123!",
+      "expected_error": "邮箱格式不正确"
     },
     {
-      "description": "特殊字符密码",
-      "password": "!@#$%^&*()_+-=[]{}|;:',.<>?/`~"
+      "email": "@domain.com",
+      "password": "TestPassword123!",
+      "expected_error": "邮箱格式不正确"
     },
     {
-      "description": "包含空格的密码",
-      "password": "password with spaces"
+      "email": "test@domain",
+      "password": "TestPassword123!",
+      "expected_error": "邮箱格式不正确"
     },
     {
-      "description": "中文字符密码",
-      "password": "密码测试123"
-    },
-    {
-      "description": "Emoji密码",
-      "password": "Pass🔒Word123"
+      "email": "test..name@domain.com",
+      "password": "TestPassword123!",
+      "expected_error": "邮箱格式不正确"
     }
   ],
-  "security_test_data": [
+  "valid_special_emails": [
     {
-      "type": "SQL注入",
-      "email": "admin' OR '1'='1",
-      "password": "' OR '1'='1"
+      "email": "test+tag@domain.com",
+      "password": "TestPassword123!",
+      "description": "邮箱包含加号"
     },
     {
-      "type": "SQL注入",
-      "email": "'; DROP TABLE users--",
-      "password": "password"
+      "email": "test.name@domain.com",
+      "password": "TestPassword123!",
+      "description": "邮箱包含点号"
     },
     {
-      "type": "XSS攻击",
-      "email": "<script>alert('XSS')</script>",
-      "password": "password"
-    },
-    {
-      "type": "XSS攻击",
-      "email": "test@test.com",
-      "password": "<img src=x onerror=alert('XSS')>"
+      "email": "test_name@domain.com",
+      "password": "TestPassword123!",
+      "description": "邮箱包含下划线"
     }
   ],
-  "case_sensitivity_tests": [
-    {
-      "email": "HAYLEE@TEST.COM",
-      "password": "Wh520520!",
-      "description": "全大写邮箱"
+  "boundary_data": {
+    "empty_email": {
+      "email": "",
+      "password": "TestPassword123!",
+      "expected_error": "请输入邮箱"
     },
-    {
-      "email": "Haylee@Test.com",
-      "password": "Wh520520!",
-      "description": "混合大小写邮箱"
+    "empty_password": {
+      "email": "haylee@test.com",
+      "password": "",
+      "expected_error": "请输入密码"
+    },
+    "long_email": {
+      "email": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@test.com",
+      "password": "TestPassword123!",
+      "expected_behavior": "限制长度或正常处理",
+      "description": "邮箱长度256字符"
+    },
+    "long_password": {
+      "email": "haylee@test.com",
+      "password": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected_behavior": "限制长度或正常处理",
+      "description": "密码长度1000字符"
     }
-  ]
+  },
+  "security_test_data": {
+    "sql_injection": [
+      {
+        "email": "admin' OR '1'='1",
+        "password": "password",
+        "attack_type": "SQL注入 - OR条件绕过"
+      },
+      {
+        "email": "admin'--",
+        "password": "password",
+        "attack_type": "SQL注入 - 注释绕过"
+      },
+      {
+        "email": "' OR '1'='1' --",
+        "password": "password",
+        "attack_type": "SQL注入 - 完整OR绕过"
+      },
+      {
+        "email": "admin' DROP TABLE users--",
+        "password": "password",
+        "attack_type": "SQL注入 - DROP TABLE攻击"
+      }
+    ],
+    "xss_payloads": [
+      {
+        "email": "<script>alert('XSS')</script>",
+        "password": "password",
+        "attack_type": "XSS - script标签"
+      },
+      {
+        "email": "<img src=x onerror=alert('XSS')>",
+        "password": "password",
+        "attack_type": "XSS - img onerror"
+      },
+      {
+        "email": "javascript:alert('XSS')",
+        "password": "password",
+        "attack_type": "XSS - javascript协议"
+      },
+      {
+        "email": "<svg onload=alert('XSS')>",
+        "password": "password",
+        "attack_type": "XSS - svg onload"
+      }
+    ]
+  },
+  "third_party_logins": {
+    "google": {
+      "provider": "google",
+      "expected_redirect": "accounts.google.com",
+      "button_text": "Google"
+    },
+    "github": {
+      "provider": "github",
+      "expected_redirect": "github.com/login",
+      "button_text": "Github"
+    }
+  },
+  "navigation_links": {
+    "website": {
+      "url": "https://aevatar.ai",
+      "link_text": "Website"
+    },
+    "github": {
+      "url": "https://github.com/aevatarAI",
+      "link_text": "Github"
+    },
+    "docs": {
+      "url_pattern": "whitepaper",
+      "link_text": "Docs"
+    },
+    "forgot_password": {
+      "link_text": "Forgot Password?"
+    },
+    "register": {
+      "link_text": "Register"
+    }
+  },
+  "performance_test_data": {
+    "page_load": {
+      "max_load_time": 2.0,
+      "max_dom_content_loaded": 1.0,
+      "description": "页面加载性能阈值（秒）"
+    },
+    "api_response": {
+      "max_login_api_time": 1.0,
+      "max_total_login_time": 2.0,
+      "description": "登录请求响应时间阈值（秒）"
+    },
+    "concurrent_users": {
+      "user_count": 10,
+      "max_response_multiplier": 2,
+      "description": "并发登录测试参数"
+    }
+  }
 }
-

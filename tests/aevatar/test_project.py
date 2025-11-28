@@ -14,25 +14,51 @@ logger = get_logger(__name__)
 class TestProjectFeatures:
     """Project功能测试类 (Sync)"""
     
-    @pytest.fixture(autouse=True)
-    def setup(self, page: Page):
-        """测试前置设置"""
-        self.page = page
-        self.page_utils = PageUtils(page)
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_class(self, shared_page: Page):
+        """类级别的设置，所有测试共享一次登录"""
+        logger.info("=" * 60)
+        logger.info("🚀 开始 Project 测试类 - Class级别Setup")
+        logger.info("=" * 60)
         
-        # 登录
-        login_page = LocalhostEmailLoginPage(page)
+        self.page = shared_page
+        self.page_utils = PageUtils(shared_page)
+        
+        # 登录一次
+        logger.info("📍 执行登录（Class级别，所有测试共享）")
+        login_page = LocalhostEmailLoginPage(shared_page)
         login_page.navigate()
         login_page.login_with_email("haylee@test.com", "Wh520520!")
         assert login_page.is_login_successful(), "登录失败"
+        self.page_utils.screenshot_step("setup_class_login_success")
         
-        # 初始化Project页面并导航
-        self.project_page = ProjectPage(page)
+        # 初始化Project页面
+        self.project_page = ProjectPage(shared_page)
+        
+        logger.info("✅ Class Setup 完成")
+        yield
+        logger.info("🔚 Project 测试类结束")
+    
+    @pytest.fixture(autouse=True)
+    def setup_method(self, shared_page: Page):
+        """方法级别的设置，每个测试前执行"""
+        logger.info("-" * 60)
+        logger.info("📌 测试方法Setup - 导航到Project页面")
+        
+        # 每个测试前导航到Project页面
+        self.page = shared_page
+        self.page_utils = PageUtils(shared_page)
+        self.project_page = ProjectPage(shared_page)
         self.project_page.navigate()
         
         if not self.project_page.is_loaded():
             logger.warning("未直接进入Project页面，尝试截图")
             self.page_utils.screenshot_step("project_navigation_failed")
+        
+        self.page_utils.screenshot_step("setup_method_ready")
+        logger.info("✅ 测试方法Setup完成")
+        yield
+        logger.info("🔚 测试方法结束")
 
     @pytest.mark.p0
     @pytest.mark.p1
