@@ -1,0 +1,58 @@
+{
+  "valid_login_data": [
+    {
+      "username": "haylee13",
+      "email": "haylee13@example.com",
+      "password": "Wh520520!",
+      "remember_me": false
+    },
+    {
+      "username": "haylee13",
+      "email": "haylee13@example.com",
+      "password": "Wh520520!",
+      "remember_me": true
+    }
+  ],
+  "invalid_login_data": [
+    {
+      "username": "",
+      "password": "",
+      "expected_error": "请输入用户名和密码"
+    },
+    {
+      "username": "nonexistent@test.com",
+      "password": "WrongPassword123!",
+      "expected_error": "用户名或密码错误"
+    },
+    {
+      "username": "haylee@test.com",
+      "password": "wrongpassword",
+      "expected_error": "用户名或密码错误"
+    }
+  ],
+  "boundary_username": [
+    {
+      "value": "a@b.c",
+      "length": 5,
+      "description": "最短有效邮箱"
+    },
+    {
+      "value": "verylongemailaddress1234567890@verylongdomainname1234567890.com",
+      "length": 68,
+      "description": "较长邮箱"
+    }
+  ],
+  "boundary_password": [
+    {
+      "value": "Pass123!",
+      "length": 8,
+      "description": "最小长度密码（8字符）"
+    },
+    {
+      "value": "P@ssw0rd1111111111111111111111111111111111",
+      "length": 48,
+      "description": "中等长度密码"
+    }
+  ]
+}
+

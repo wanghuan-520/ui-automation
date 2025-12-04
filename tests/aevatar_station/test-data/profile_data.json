@@ -1,0 +1,30 @@
+{
+  "valid_profile_data": [
+    {
+      "name": "John",
+      "surname": "Doe",
+      "phone": "+1 (555) 123-4567"
+    },
+    {
+      "name": "李明",
+      "surname": "Wang",
+      "phone": "+86 13800138000"
+    },
+    {
+      "name": "María",
+      "surname": "García",
+      "phone": "+34 912 345 678"
+    }
+  ],
+  "invalid_profile_data": [
+    {
+      "name": "<script>alert('XSS')</script>",
+      "purpose": "XSS攻击测试"
+    },
+    {
+      "phone": "invalid_phone",
+      "expected_error": "请输入有效的电话号码"
+    }
+  ]
+}
+

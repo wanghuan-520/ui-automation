@@ -1,0 +1,52 @@
+{
+  "valid_email_config": [
+    {
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "from_address": "noreply@aevatar.ai",
+      "enable_ssl": true,
+      "username": "test@gmail.com",
+      "password": "app_password_here"
+    },
+    {
+      "host": "smtp.office365.com",
+      "port": 587,
+      "from_address": "noreply@company.com",
+      "enable_ssl": true,
+      "username": "admin@company.com",
+      "password": "secure_password"
+    }
+  ],
+  "invalid_email_config": [
+    {
+      "host": "",
+      "port": 587,
+      "expected_error": "请输入邮件服务器地址"
+    },
+    {
+      "host": "smtp.gmail.com",
+      "port": 0,
+      "expected_error": "端口号必须在1-65535之间"
+    },
+    {
+      "host": "smtp.gmail.com",
+      "port": 70000,
+      "expected_error": "端口号必须在1-65535之间"
+    }
+  ],
+  "boundary_port": [
+    {
+      "value": 1,
+      "description": "最小端口号"
+    },
+    {
+      "value": 587,
+      "description": "SMTP提交端口"
+    },
+    {
+      "value": 65535,
+      "description": "最大端口号"
+    }
+  ]
+}
+

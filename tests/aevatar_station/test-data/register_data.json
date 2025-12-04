@@ -1,0 +1,265 @@
+{
+  "valid_register_data": [
+    {
+      "username": "testuser001",
+      "email": "testuser001@test.com",
+      "password": "TestPass123!",
+      "description": "标准有效注册数据"
+    },
+    {
+      "username": "user_with_underscore",
+      "email": "user.with.dots@test.com",
+      "password": "StrongP@ssw0rd!",
+      "description": "带下划线和点的用户名"
+    }
+  ],
+  "invalid_usernames": [
+    {
+      "username": "",
+      "email": "valid@test.com",
+      "password": "ValidPass123!",
+      "expected_error": "用户名必填",
+      "description": "用户名为空"
+    },
+    {
+      "username": "user@#$%",
+      "email": "valid@test.com",
+      "password": "ValidPass123!",
+      "expected_error": "用户名格式错误",
+      "description": "用户名包含特殊字符"
+    },
+    {
+      "username": "user with space",
+      "email": "valid@test.com",
+      "password": "ValidPass123!",
+      "expected_error": "用户名不能包含空格",
+      "description": "用户名包含空格"
+    }
+  ],
+  "invalid_emails": [
+    {
+      "username": "validuser",
+      "email": "",
+      "password": "ValidPass123!",
+      "expected_error": "邮箱必填",
+      "description": "邮箱为空"
+    },
+    {
+      "username": "validuser",
+      "email": "invalid-email",
+      "password": "ValidPass123!",
+      "expected_error": "邮箱格式错误",
+      "description": "无效邮箱格式"
+    },
+    {
+      "username": "validuser",
+      "email": "test@",
+      "password": "ValidPass123!",
+      "expected_error": "邮箱格式错误",
+      "description": "邮箱缺少域名"
+    },
+    {
+      "username": "validuser",
+      "email": "testexample.com",
+      "password": "ValidPass123!",
+      "expected_error": "邮箱格式错误",
+      "description": "邮箱缺少@符号"
+    }
+  ],
+  "weak_passwords": [
+    {
+      "username": "validuser",
+      "email": "valid@test.com",
+      "password": "",
+      "expected_error": "密码必填",
+      "description": "密码为空"
+    },
+    {
+      "username": "validuser",
+      "email": "valid@test.com",
+      "password": "12345678",
+      "expected_error": "密码强度不足",
+      "description": "仅数字密码"
+    },
+    {
+      "username": "validuser",
+      "email": "valid@test.com",
+      "password": "abcdefgh",
+      "expected_error": "密码强度不足",
+      "description": "仅字母密码"
+    },
+    {
+      "username": "validuser",
+      "email": "valid@test.com",
+      "password": "Test1!",
+      "expected_error": "密码长度不足",
+      "description": "密码过短（少于8位）"
+    },
+    {
+      "username": "validuser",
+      "email": "valid@test.com",
+      "password": "testpass123",
+      "expected_error": "密码缺少大写字母",
+      "description": "缺少大写字母"
+    },
+    {
+      "username": "validuser",
+      "email": "valid@test.com",
+      "password": "TESTPASS123",
+      "expected_error": "密码缺少小写字母",
+      "description": "缺少小写字母"
+    },
+    {
+      "username": "validuser",
+      "email": "valid@test.com",
+      "password": "TestPassword",
+      "expected_error": "密码缺少数字",
+      "description": "缺少数字"
+    },
+    {
+      "username": "validuser",
+      "email": "valid@test.com",
+      "password": "TestPass123",
+      "expected_error": "密码缺少特殊字符",
+      "description": "缺少特殊字符"
+    }
+  ],
+  "strong_passwords": [
+    {
+      "password": "TestPass123!",
+      "description": "标准强密码"
+    },
+    {
+      "password": "P@ssw0rd!2024",
+      "description": "包含数字年份"
+    },
+    {
+      "password": "MyP@ss123Word!",
+      "description": "混合大小写和特殊字符"
+    },
+    {
+      "password": "Str0ng!P@ssw0rd",
+      "description": "复杂强密码"
+    }
+  ],
+  "boundary_data": [
+    {
+      "username": "a",
+      "email": "a@b.c",
+      "password": "Short1!A",
+      "description": "最短有效输入"
+    },
+    {
+      "username": "very_long_username_with_more_than_sixty_four_characters_test",
+      "email": "very.long.email.address.test.user@example-domain-with-long-name.com",
+      "password": "VeryLongP@ssw0rdWith128CharactersAAAAAAAAABBBBBBBBBBCCCCCCCCCCDDDDDDDDDDEEEEEEEEEEFFFFFFFFFFGGGGGGGGGGHHHHHHHHHH123!",
+      "description": "最大长度输入"
+    }
+  ],
+  "duplicate_data": [
+    {
+      "username": "haylee5",
+      "email": "newuser@test.com",
+      "password": "TestPass123!",
+      "expected_error": "用户名已存在",
+      "description": "重复用户名"
+    },
+    {
+      "username": "newuser",
+      "email": "existing@test.com",
+      "password": "TestPass123!",
+      "expected_error": "邮箱已被注册",
+      "description": "重复邮箱（需要根据实际已存在的邮箱调整）"
+    }
+  ],
+  "abp_password_validation": [
+    {
+      "username": "testuser",
+      "email": "test1@example.com",
+      "password": "TestPassword!",
+      "missing": "digit",
+      "expected_error_cn": "数字",
+      "expected_error_en": "digit",
+      "description": "ABP验证-缺少数字"
+    },
+    {
+      "username": "testuser",
+      "email": "test2@example.com",
+      "password": "testpass123!",
+      "missing": "uppercase",
+      "expected_error_cn": "大写字母",
+      "expected_error_en": "uppercase",
+      "description": "ABP验证-缺少大写字母"
+    },
+    {
+      "username": "testuser",
+      "email": "test3@example.com",
+      "password": "TESTPASS123!",
+      "missing": "lowercase",
+      "expected_error_cn": "小写字母",
+      "expected_error_en": "lowercase",
+      "description": "ABP验证-缺少小写字母"
+    },
+    {
+      "username": "testuser",
+      "email": "test4@example.com",
+      "password": "TestPass123",
+      "missing": "special",
+      "expected_error_cn": "特殊字符",
+      "expected_error_en": "special character",
+      "description": "ABP验证-缺少特殊字符"
+    },
+    {
+      "username": "testuser",
+      "email": "test5@example.com",
+      "password": "Test1!",
+      "missing": "length",
+      "expected_error_cn": "8",
+      "expected_error_en": "8",
+      "description": "ABP验证-密码长度不足"
+    },
+    {
+      "username": "testuser",
+      "email": "test6@example.com",
+      "password": "TestPass123!",
+      "missing": "none",
+      "expected_result": "success",
+      "description": "ABP验证-符合所有要求的强密码"
+    }
+  ],
+  "abp_username_validation": [
+    {
+      "username": "test user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "contains_space",
+      "expected_error": "空格",
+      "description": "ABP验证-用户名包含空格"
+    },
+    {
+      "username": "test@user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "special_char",
+      "expected_error": "特殊字符",
+      "description": "ABP验证-用户名包含特殊字符"
+    },
+    {
+      "username": "test_user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "none",
+      "expected_result": "success",
+      "description": "ABP验证-有效用户名（下划线）"
+    },
+    {
+      "username": "test-user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "none",
+      "expected_result": "success",
+      "description": "ABP验证-有效用户名（连字符）"
+    }
+  ]
+}
+

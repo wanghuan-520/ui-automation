@@ -1,0 +1,123 @@
+{
+  "valid_email_config": [
+    {
+      "display_name": "Aevatar System",
+      "from_address": "noreply@aevatar.ai",
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "enable_ssl": true,
+      "use_default_credentials": false,
+      "domain": "",
+      "username": "test@gmail.com",
+      "password": "app_password_here",
+      "description": "Gmail SMTP配置"
+    },
+    {
+      "display_name": "Company Notification",
+      "from_address": "noreply@company.com",
+      "host": "smtp.office365.com",
+      "port": 587,
+      "enable_ssl": true,
+      "use_default_credentials": false,
+      "domain": "",
+      "username": "admin@company.com",
+      "password": "secure_password",
+      "description": "Office 365 SMTP配置"
+    },
+    {
+      "display_name": "QQ Mail",
+      "from_address": "noreply@qq.com",
+      "host": "smtp.qq.com",
+      "port": 465,
+      "enable_ssl": true,
+      "use_default_credentials": false,
+      "domain": "",
+      "username": "test@qq.com",
+      "password": "authorization_code",
+      "description": "QQ邮箱SMTP配置"
+    }
+  ],
+  "invalid_email_config": [
+    {
+      "from_address": "invalidemail",
+      "expected_error": "邮箱格式不正确",
+      "description": "无效邮箱：缺少@和域名"
+    },
+    {
+      "from_address": "test@",
+      "expected_error": "邮箱格式不正确",
+      "description": "无效邮箱：缺少域名"
+    },
+    {
+      "from_address": "@example.com",
+      "expected_error": "邮箱格式不正确",
+      "description": "无效邮箱：缺少用户名"
+    },
+    {
+      "host": "",
+      "port": 587,
+      "expected_error": "请输入邮件服务器地址",
+      "description": "Host为空"
+    }
+  ],
+  "boundary_port": [
+    {
+      "value": 0,
+      "valid": false,
+      "description": "无效：0端口"
+    },
+    {
+      "value": 1,
+      "valid": true,
+      "description": "边界：最小有效端口"
+    },
+    {
+      "value": 25,
+      "valid": true,
+      "description": "常用：标准SMTP端口"
+    },
+    {
+      "value": 465,
+      "valid": true,
+      "description": "常用：SSL端口"
+    },
+    {
+      "value": 587,
+      "valid": true,
+      "description": "常用：TLS端口"
+    },
+    {
+      "value": 65535,
+      "valid": true,
+      "description": "边界：最大有效端口"
+    },
+    {
+      "value": 70000,
+      "valid": false,
+      "description": "无效：超出范围"
+    }
+  ],
+  "host_formats": [
+    {
+      "value": "smtp.gmail.com",
+      "type": "domain",
+      "description": "域名格式"
+    },
+    {
+      "value": "192.168.1.100",
+      "type": "ipv4",
+      "description": "IPv4地址格式"
+    },
+    {
+      "value": "localhost",
+      "type": "local",
+      "description": "本地主机"
+    },
+    {
+      "value": "mail.company.local",
+      "type": "internal",
+      "description": "内网域名"
+    }
+  ]
+}
+

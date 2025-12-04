@@ -1,0 +1,175 @@
+    @pytest.mark.P1
+    @pytest.mark.validation
+    def test_p1_phone_field_format_validation(self, logged_in_profile_page):
+        """
+        TC-VALID-PHONE-001: PhoneNumber字段格式与长度验证测试（完整版）
+        
+        后端校验规则（ABP Framework AbpUserConsts）:
+        - 字段名：PhoneNumber
+        - 必填状态：❌ 非必填（可选）
+        - 长度限制：0-16字符
+        - 格式：^[\d\s\-\+\(\)]+$ （数字、空格、+-()）
+        
+        测试场景（14个）：
+        1. 格式有效（5个）：纯数字/国际格式/括号/连字符/混合
+        2. 格式无效（3个）：包含字母/特殊字符/中文
+        3. 长度验证（5个）：空值/1字符/11字符/16字符/17字符
+        4. 特殊（1个）：仅空格
+        """
+        logger.info("开始执行TC-VALID-PHONE-001: PhoneNumber字段格式与长度验证")
+        logger.info("=" * 60)
+        logger.info("校验规则：MaxPhoneNumberLength=16, 非必填, 格式^[\\d\\s\\-\\+\\(\\)]+$")
+        logger.info("=" * 60)
+        
+        profile_page = logged_in_profile_page
+        screenshot_idx = 1
+        
+        original_phone = profile_page.get_phone_value()
+        original_name = profile_page.get_name_value() or "TestName"
+        original_surname = profile_page.get_surname_value() or "TestSurname"
+        
+        logger.info(f"原始Phone: '{original_phone}'")
+        
+        # 截图：初始状态
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        screenshot_path = f"phone_validation_init_{timestamp}.png"
+        profile_page.take_screenshot(screenshot_path)
+        allure.attach.file(
+            f"screenshots/{screenshot_path}",
+            name=f"{screenshot_idx}-Phone字段初始状态",
+            attachment_type=allure.attachment_type.PNG
+        )
+        screenshot_idx += 1
+        
+        # 定义测试场景
+        test_scenarios = [
+            # 格式有效（5个）
+            {"type": "format_valid", "name": "纯数字", "value": "13800138000", "should_save": True, "should_error": False, "description": "11位手机号（有效）", "expected": "成功保存"},
+            {"type": "format_valid", "name": "国际格式", "value": "+86 13800138000", "should_save": True, "should_error": False, "description": "国际格式+86（有效）", "expected": "成功保存"},
+            {"type": "format_valid", "name": "括号格式", "value": "(021)12345678", "should_save": True, "should_error": False, "description": "带括号区号（有效）", "expected": "成功保存"},
+            {"type": "format_valid", "name": "连字符格式", "value": "138-0013-8000", "should_save": True, "should_error": False, "description": "带连字符（有效）", "expected": "成功保存"},
+            {"type": "format_valid", "name": "混合格式", "value": "+86(138)0013800", "should_save": True, "should_error": False, "description": "混合符号（有效）", "expected": "成功保存"},
+            
+            # 格式无效（3个）
+            {"type": "format_invalid", "name": "包含字母", "value": "138abc00138", "should_save": False, "should_error": True, "description": "包含字母（无效）", "expected": "保存失败，显示错误"},
+            {"type": "format_invalid", "name": "特殊字符", "value": "138#0013#8000", "should_save": False, "should_error": True, "description": "包含#号（无效）", "expected": "保存失败，显示错误"},
+            {"type": "format_invalid", "name": "中文字符", "value": "电话138", "should_save": False, "should_error": True, "description": "包含中文（无效）", "expected": "保存失败，显示错误"},
+            
+            # 长度验证（5个）
+            {"type": "length_empty", "name": "空值允许", "value": "", "should_save": True, "should_error": False, "description": "空值（非必填）", "expected": "成功保存"},
+            {"type": "length_min", "name": "最小1字符", "value": "1", "should_save": True, "should_error": False, "description": "最小长度", "expected": "成功保存"},
+            {"type": "length_normal", "name": "正常11字符", "value": "13800138000", "should_save": True, "should_error": False, "description": "正常手机号", "expected": "成功保存"},
+            {"type": "length_max", "name": "最大16字符", "value": "1234567890123456", "should_save": True, "should_error": False, "description": "最大长度", "expected": "成功保存"},
+            {"type": "length_over", "name": "超长17字符", "value": "12345678901234567", "should_save": False, "should_error": True, "description": "超过最大长度", "expected": "被截断或显示错误"},
+            
+            # 特殊（1个）
+            {"type": "special_spaces", "name": "仅空格", "value": "   ", "should_save": True, "should_error": False, "description": "仅空格（可能trim）", "expected": "可能trim为空"},
+        ]
+        
+        validation_results = []
+        
+        for idx, scenario in enumerate(test_scenarios, 1):
+            logger.info("")
+            logger.info("=" * 70)
+            logger.info(f"场景 {idx}/{len(test_scenarios)}: {scenario['name']}")
+            logger.info("=" * 70)
+            logger.info(f"  输入值: '{scenario['value']}'")
+            logger.info(f"  长度: {len(scenario['value'])} 字符")
+            logger.info(f"  描述: {scenario['description']}")
+            logger.info(f"  预期: {scenario['expected']}")
+            
+            profile_page.page.reload()
+            profile_page.page.wait_for_load_state("domcontentloaded")
+            profile_page.page.wait_for_timeout(2000)
+            
+            profile_page.fill_input(profile_page.NAME_INPUT, original_name)
+            profile_page.fill_input(profile_page.SURNAME_INPUT, original_surname)
+            profile_page.fill_input(profile_page.PHONE_INPUT, scenario['value'])
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_name = scenario['name'].replace(' ', '_')
+            screenshot_path = f"phone_{safe_name}_input_{timestamp}.png"
+            profile_page.take_screenshot(screenshot_path)
+            allure.attach.file(
+                f"screenshots/{screenshot_path}",
+                name=f"{screenshot_idx}-{scenario['name']}_输入后",
+                attachment_type=allure.attachment_type.PNG
+            )
+            screenshot_idx += 1
+            
+            profile_page.click_element(profile_page.SAVE_BUTTON)
+            profile_page.page.wait_for_load_state("networkidle")
+            profile_page.page.wait_for_timeout(2000)
+            
+            has_error = False
+            error_message = ""
+            try:
+                validation_info = profile_page.page.evaluate(f"""
+                    (() => {{
+                        const el = document.querySelector("{profile_page.PHONE_INPUT}");
+                        return {{valid: el ? el.validity.valid : null, message: el ? el.validationMessage : ''}};
+                    }})()
+                """)
+                if validation_info and not validation_info['valid']:
+                    has_error = True
+                    error_message = validation_info['message']
+            except: pass
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            screenshot_path = f"phone_{safe_name}_saved_{timestamp}.png"
+            profile_page.take_screenshot(screenshot_path)
+            
+            expected_str = "成功" if scenario['should_save'] else "失败"
+            actual_str = "成功" if not has_error else "失败"
+            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{expected_str}, 实际:{actual_str}）"
+            allure.attach.file(f"screenshots/{screenshot_path}", name=screenshot_desc, attachment_type=allure.attachment_type.PNG)
+            screenshot_idx += 1
+            
+            profile_page.page.reload()
+            profile_page.page.wait_for_load_state("domcontentloaded")
+            profile_page.page.wait_for_timeout(2000)
+            
+            saved_value = profile_page.get_phone_value()
+            if scenario['type'] in ['length_empty', 'special_spaces']:
+                is_saved = (saved_value == scenario['value']) or (saved_value == '' or saved_value is None)
+            else:
+                is_saved = saved_value == scenario['value']
+            
+            save_match = is_saved == scenario['should_save']
+            error_match = has_error == scenario['should_error']
+            overall_match = save_match and error_match
+            
+            logger.info(f"  实际: 保存={is_saved}, 错误={has_error}, 结果={'✅' if overall_match else '❌'}")
+            
+            if scenario['should_error'] and not has_error:
+                logger.error(f"  ⚠️ 前端BUG：无效输入未显示错误提示！")
+            
+            validation_results.append({"scenario": scenario['name'], "type": scenario['type'], "input_length": len(scenario['value']), "expected_save": scenario['should_save'], "actually_saved": is_saved, "expected_error": scenario['should_error'], "actually_error": has_error, "match": overall_match})
+        
+        # 恢复原始值
+        logger.info("")
+        logger.info(f"恢复原始Phone: '{original_phone if original_phone else '(空)'}'")
+        profile_page.page.reload()
+        profile_page.page.wait_for_load_state("domcontentloaded")
+        profile_page.page.wait_for_timeout(2000)
+        profile_page.fill_input(profile_page.NAME_INPUT, original_name)
+        profile_page.fill_input(profile_page.SURNAME_INPUT, original_surname)
+        profile_page.fill_input(profile_page.PHONE_INPUT, original_phone if original_phone else "")
+        profile_page.click_element(profile_page.SAVE_BUTTON)
+        profile_page.page.wait_for_load_state("networkidle")
+        profile_page.page.wait_for_timeout(2000)
+        
+        # 输出汇总
+        logger.info("")
+        logger.info("=" * 80)
+        logger.info("PhoneNumber字段验证结果汇总")
+        logger.info("=" * 80)
+        for r in validation_results:
+            result = "✅" if r['match'] else "❌"
+            logger.info(f"| {r['scenario']:15} | {r['type'].split('_')[0]:6} | {r['input_length']:4} | {result} |")
+        
+        passed = sum(1 for r in validation_results if r['match'])
+        total = len(validation_results)
+        logger.info(f"\n总体通过率: {passed}/{total} ({passed/total*100:.1f}%)")
+        logger.info("=" * 80)
+        logger.info("TC-VALID-PHONE-001执行完成")
