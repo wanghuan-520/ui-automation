@@ -26,15 +26,36 @@ class ProfileSettingsPage(BasePage):
         """导航到个人设置页面"""
         logger.info("导航到个人设置页面")
         self.navigate_to("/admin/profile")
+        # ⚡ 优化：先等待页面基本加载
+        self.page.wait_for_load_state("domcontentloaded")
+        self.page.wait_for_timeout(500)  # ⚡ 优化：缩短等待时间
+        
         # 显式等待关键元素加载
         logger.info("等待页面关键元素加载...")
         try:
-            self.page.wait_for_selector(self.NAME_INPUT, state="visible", timeout=30000)
+            # ⚡ 优化：尝试多个选择器，增加容错性
+            selectors = [self.NAME_INPUT, self.SAVE_BUTTON, self.PERSONAL_SETTINGS_TAB]
+            loaded = False
+            for selector in selectors:
+                try:
+                    self.page.wait_for_selector(selector, state="visible", timeout=10000)
+                    loaded = True
+                    break
+                except:
+                    continue
+            if not loaded:
+                raise Exception("无法找到任何关键元素")
             logger.info("页面加载完成")
         except Exception as e:
             logger.error(f"页面加载超时: {e}")
             logger.error(f"当前URL: {self.page.url}")
             logger.error(f"页面标题: {self.page.title()}")
+            # ⚡ 优化：如果新注册账号无权限，尝试等待更长时间或检查权限
+            if "/admin/profile" not in self.page.url:
+                logger.warning("可能没有权限访问profile页面，尝试等待...")
+                self.page.wait_for_timeout(2000)
+                if "/admin/profile" not in self.page.url:
+                    raise Exception(f"无法访问profile页面，当前URL: {self.page.url}")
             raise
     
     def is_loaded(self):

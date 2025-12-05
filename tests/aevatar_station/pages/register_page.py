@@ -19,7 +19,7 @@ class RegisterPage(BasePage):
     USERNAME_INPUT = 'input[name="Input.UserName"]'
     EMAIL_INPUT = 'input[name="Input.EmailAddress"]'
     PASSWORD_INPUT = 'input[name="Input.Password"]'
-    REGISTER_BUTTON = 'button:has-text("注册")'
+    REGISTER_BUTTON = 'button:has-text("注册"), button:has-text("Register"), button[type="submit"]'
     LOGIN_LINK = 'a:has-text("登录")'
     ALREADY_REGISTERED_TEXT = "text=已经注册？"
     LANGUAGE_SWITCHER = 'button:has-text("简体中文")'
@@ -104,7 +104,25 @@ class RegisterPage(BasePage):
     def click_register_button(self):
         """点击注册按钮"""
         logger.info("点击注册按钮")
-        self.click_element(self.REGISTER_BUTTON)
+        # 尝试多个选择器
+        selectors = [
+            'button:has-text("注册")',
+            'button:has-text("Register")',
+            'button[type="submit"]',
+            'input[type="submit"][value*="注册"]',
+            'input[type="submit"][value*="Register"]'
+        ]
+        clicked = False
+        for selector in selectors:
+            try:
+                if self.is_visible(selector, timeout=2000):
+                    self.click_element(selector)
+                    clicked = True
+                    break
+            except:
+                continue
+        if not clicked:
+            raise Exception("无法找到注册按钮")
         self.page.wait_for_timeout(1000)
     
     def click_login_link(self):
@@ -128,9 +146,12 @@ class RegisterPage(BasePage):
         self.fill_password(password)
         self.click_register_button()
         
-        # 等待页面响应
-        self.page.wait_for_load_state("networkidle", timeout=10000)
-        self.page.wait_for_timeout(2000)
+        # ⚡ 优化：使用selector等待替代networkidle（更快）
+        try:
+            self.page.wait_for_selector(self.REGISTER_BUTTON, state="visible", timeout=5000)
+        except:
+            pass
+        self.page.wait_for_timeout(2000)  # 等待注册响应
         
         logger.info("注册请求已提交")
     

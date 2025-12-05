@@ -66,9 +66,45 @@ class BasePage:
         self.page.click(selector, timeout=timeout)
     
     def fill_input(self, selector, value, timeout=10000):
-        """填写输入框"""
+        """填写输入框 - 增强版：先等待元素可见且可交互"""
         logger.info(f"填写输入框 {selector}: {value}")
-        self.page.fill(selector, value, timeout=timeout)
+        try:
+            # 1. 等待元素存在并可见
+            self.page.wait_for_selector(selector, state="visible", timeout=timeout)
+            logger.debug(f"✅ 元素已可见: {selector}")
+            
+            # 2. 等待元素可交互（attached and enabled）
+            self.page.wait_for_selector(selector, state="attached", timeout=5000)
+            
+            # 3. 确保元素在视口内
+            self.page.locator(selector).scroll_into_view_if_needed(timeout=5000)
+            logger.debug(f"✅ 元素已滚动到视口: {selector}")
+            
+            # 4. 执行填写
+            self.page.fill(selector, value, timeout=timeout)
+            logger.info(f"✅ 填写成功: {selector}")
+        except Exception as e:
+            # 增强错误信息：包含页面状态
+            logger.error(f"❌ 填写输入框失败: {selector}")
+            logger.error(f"   错误类型: {type(e).__name__}")
+            logger.error(f"   错误信息: {str(e)}")
+            
+            # 尝试获取页面状态诊断信息
+            try:
+                is_visible = self.page.is_visible(selector, timeout=1000)
+                logger.error(f"   元素可见性: {is_visible}")
+                
+                # 检查元素是否存在
+                count = self.page.locator(selector).count()
+                logger.error(f"   匹配元素数量: {count}")
+                
+                # 检查页面URL
+                current_url = self.page.url
+                logger.error(f"   当前页面URL: {current_url}")
+            except Exception as diag_error:
+                logger.error(f"   诊断信息获取失败: {diag_error}")
+            
+            raise
     
     def get_text(self, selector, timeout=10000):
         """获取元素文本"""
@@ -86,11 +122,56 @@ class BasePage:
         logger.info(f"等待元素出现: {selector}")
         self.page.wait_for_selector(selector, timeout=timeout)
     
-    def take_screenshot(self, filename):
-        """截图"""
+    def take_screenshot(self, filename, reveal_passwords=False):
+        """
+        截图
+        
+        Args:
+            filename: 截图文件名
+            reveal_passwords: 是否将密码字段显示为明文（方便调试）
+        """
         path = f"screenshots/{filename}"
         logger.info(f"截图保存到: {path}")
+        
+        # 如果需要显示密码明文
+        revealed_inputs = []
+        if reveal_passwords:
+            try:
+                # 查找所有type="password"的输入框
+                password_inputs = self.page.locator('input[type="password"]').all()
+                logger.debug(f"  🔓 发现 {len(password_inputs)} 个密码输入框，临时显示为明文")
+                
+                for input_elem in password_inputs:
+                    try:
+                        # 保存原始值
+                        original_value = input_elem.input_value()
+                        if original_value:  # 只处理有值的输入框
+                            # 改为text类型
+                            input_elem.evaluate("el => el.type = 'text'")
+                            revealed_inputs.append(input_elem)
+                    except Exception as e:
+                        logger.debug(f"    跳过某个输入框: {e}")
+                        continue
+                
+                # 等待DOM更新
+                self.page.wait_for_timeout(200)
+            except Exception as e:
+                logger.warning(f"  ⚠️ 显示密码明文失败: {e}")
+        
+        # 截图
         self.page.screenshot(path=path)
+        
+        # 恢复密码遮罩
+        if revealed_inputs:
+            try:
+                for input_elem in revealed_inputs:
+                    try:
+                        input_elem.evaluate("el => el.type = 'password'")
+                    except:
+                        pass  # 可能已经导航到其他页面
+                logger.debug(f"  🔒 已恢复密码遮罩")
+            except Exception as e:
+                logger.debug(f"  ⚠️ 恢复密码遮罩失败（可能已导航）: {e}")
     
     def get_current_url(self):
         """获取当前URL"""
