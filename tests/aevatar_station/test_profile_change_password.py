@@ -124,7 +124,25 @@ def logged_in_change_password_page(logged_in_page, request):
                 continue
         
         if not password_input_found:
-            raise Exception("所有密码输入框选择器都失败")
+            # 尝试刷新页面一次
+            logger.warning("第一次尝试未找到密码输入框，尝试刷新页面...")
+            page.reload()
+            page.wait_for_load_state("domcontentloaded")
+            page.wait_for_timeout(2000)
+            
+            # 重试查找逻辑
+            for selector in alternative_selectors:
+                try:
+                    logger.info(f"  重试选择器: {selector}")
+                    page.wait_for_selector(selector, state="visible", timeout=5000)
+                    logger.info(f"  ✅ 重试找到元素: {selector}")
+                    password_input_found = True
+                    break
+                except:
+                    continue
+            
+            if not password_input_found:
+                raise Exception("所有密码输入框选择器都失败（重试后）")
         
         # 等待其他输入框（使用相同策略）
         page.wait_for_selector("input[type='password']", state="visible", timeout=5000)
@@ -362,7 +380,10 @@ class TestChangePassword:
         
         password_page = logged_in_change_password_page
         # 从账号池获取当前密码
-        current_password = request.node._account_info[2] if hasattr(request.node, '_account_info') else "TestPass123!"
+        if hasattr(request.node, '_account_info'):
+            current_password = request.node._account_info[2]
+        else:
+            pytest.skip("⚠️ 未找到账号池信息，跳过测试")
         
         # 截图：初始状态
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -439,7 +460,10 @@ class TestChangePassword:
         
         password_page = logged_in_change_password_page
         # 从账号池获取当前密码
-        current_password = request.node._account_info[2] if hasattr(request.node, '_account_info') else "TestPass123!"
+        if hasattr(request.node, '_account_info'):
+            current_password = request.node._account_info[2]
+        else:
+            pytest.skip("⚠️ 未找到账号池信息，跳过测试")
         
         # 截图：初始状态
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -680,7 +704,10 @@ class TestChangePassword:
         
         password_page = logged_in_change_password_page
         # 从账号池获取当前密码
-        current_password = request.node._account_info[2] if hasattr(request.node, '_account_info') else "TestPass123!"
+        if hasattr(request.node, '_account_info'):
+            current_password = request.node._account_info[2]
+        else:
+            pytest.skip("⚠️ 未找到账号池信息，跳过测试")
         
         # 完整的边界值测试数据
         boundary_test_cases = [
@@ -1016,7 +1043,10 @@ class TestChangePassword:
         
         password_page = logged_in_change_password_page
         # 从账号池获取当前密码
-        current_password = request.node._account_info[2] if hasattr(request.node, '_account_info') else "TestPass123!"
+        if hasattr(request.node, '_account_info'):
+            current_password = request.node._account_info[2]
+        else:
+            pytest.skip("⚠️ 未找到账号池信息，跳过测试")
         
         # 测试各种不符合ABP复杂度要求的密码
         weak_passwords = [
@@ -1353,10 +1383,7 @@ class TestChangePassword:
             username, email, current_password = request.node._account_info
             logger.info(f"✅ 使用账号池账号: {username}")
         else:
-            # 降级：使用默认账号
-            username = "fallback_user"
-            current_password = "TestPass123!"
-            logger.warning("⚠️ 未找到账号池信息，使用降级账号")
+            pytest.skip("⚠️ 未找到账号池信息，跳过测试（避免使用无效降级账号）")
         
         # 新密码必须满足ABP复杂度要求：大写+小写+数字+特殊字符，最小6字符
         new_password = "NewPwd123!@"
