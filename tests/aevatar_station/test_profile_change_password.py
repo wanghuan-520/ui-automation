@@ -929,8 +929,8 @@ class TestChangePassword:
             result_match = actual_passed == test_case['should_pass']
             
             result_icon = "✅" if result_match else "❌"
-            result_status = "通过" if actual_passed else "拒绝"
-            expected_status = "通过" if test_case['should_pass'] else "拒绝"
+            result_status = "成功" if actual_passed else "失败"
+            expected_status = "成功" if test_case['should_pass'] else "失败"
             
             logger.info(f"  实际结果: {result_status}")
             logger.info(f"  预期结果: {expected_status}")

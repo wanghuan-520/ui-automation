@@ -647,6 +647,10 @@ class TestProfile:
         profile_page = logged_in_profile_page
         screenshot_idx = 1
         
+        # 引入随机模块以确保用户名唯一性
+        import random
+        random_suffix = lambda: f"{datetime.now().strftime('%H%M%S')}{random.randint(100, 999)}"
+        
         # 获取原始用户名
         original_username = profile_page.get_username_value()
         logger.info(f"原始Username: '{original_username}'")
@@ -668,7 +672,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "普通英文用户名",
-                "value": f"TestUser{datetime.now().strftime('%H%M%S')}",
+                "value": f"TestUser{random_suffix()}",
                 "should_save": True,
                 "should_error": False,
                 "description": "纯英文字母（符合正则）",
@@ -677,7 +681,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "带数字下划线",
-                "value": f"user_123_{datetime.now().strftime('%H%M%S')}",
+                "value": f"user_123_{random_suffix()}",
                 "should_save": True,
                 "should_error": False,
                 "description": "英文+数字+下划线（符合正则）",
@@ -686,7 +690,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "带点和@符号",
-                "value": "user.name@test",
+                "value": f"user.name{random_suffix()}@test",
                 "should_save": True,
                 "should_error": False,
                 "description": "包含点和@（符合正则）",
@@ -695,7 +699,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "带连字符",
-                "value": "user-name-123",
+                "value": f"user-name-{random_suffix()}",
                 "should_save": True,
                 "should_error": False,
                 "description": "包含连字符（符合正则）",
@@ -704,7 +708,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "纯数字",
-                "value": "123456789",
+                "value": f"{random_suffix()}",
                 "should_save": True,
                 "should_error": False,
                 "description": "纯数字（符合正则）",
@@ -753,7 +757,8 @@ class TestProfile:
             {
                 "type": "length_min",
                 "name": "最小长度1字符",
-                "value": "a",
+                # 使用随机小写字母，避免重复冲突
+                "value": chr(random.randint(97, 122)),
                 "should_save": True,
                 "should_error": False,
                 "description": "最小有效长度（边界值）",
@@ -762,7 +767,8 @@ class TestProfile:
             {
                 "type": "length_normal",
                 "name": "正常长度50字符",
-                "value": "u" * 50,
+                # 动态生成包含随机因子的50字符用户名
+                "value": (lambda r=random_suffix(): f"u{r}" + "u" * (50 - len(f"u{r}")))(),
                 "should_save": True,
                 "should_error": False,
                 "description": "正常长度",
@@ -771,7 +777,8 @@ class TestProfile:
             {
                 "type": "length_max",
                 "name": "最大长度256字符",
-                "value": "x" * 256,
+                # 动态生成包含随机因子的256字符用户名
+                "value": (lambda r=random_suffix(): f"x{r}" + "x" * (256 - len(f"x{r}")))(),
                 "should_save": True,
                 "should_error": False,
                 "description": "最大允许长度（边界值）",
@@ -780,7 +787,8 @@ class TestProfile:
             {
                 "type": "length_over",
                 "name": "超长257字符",
-                "value": "y" * 257,
+                # 动态计算：包含随机因子
+                "value": (lambda r=random_suffix(): f"y{r}" + "y" * (257 - len(f"y{r}")))(),
                 "should_save": False,
                 "should_error": False,  # Input maxlength限制，无HTML5验证错误
                 "description": "超过最大长度（边界值+1）",
@@ -789,7 +797,8 @@ class TestProfile:
             {
                 "type": "length_over",
                 "name": "极长300字符",
-                "value": "z" * 300,
+                # 动态计算：包含随机因子
+                "value": (lambda r=random_suffix(): f"z{r}" + "z" * (300 - len(f"z{r}")))(),
                 "should_save": False,
                 "should_error": False,  # Input maxlength限制，无HTML5验证错误
                 "description": "远超最大长度",
@@ -980,12 +989,10 @@ class TestProfile:
                 is_saved = saved_value == scenario['value']
             
             # 生成截图描述
-            save_expected_str = "成功" if scenario['should_save'] else "失败"
-            save_actual_str = "成功" if is_saved else "失败"
-            error_expected_str = "有错误" if scenario['should_error'] else "无错误"
-            error_actual_str = "有错误" if has_error else "无错误"
+            expected_status = "成功" if scenario['should_save'] else "失败"
+            actual_status = "成功" if is_saved else "失败"
             
-            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{save_expected_str}/{error_expected_str}, 实际:{save_actual_str}/{error_actual_str}）"
+            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{expected_status}, 实际:{actual_status}）"
             
             allure.attach.file(
                 f"screenshots/{screenshot_path}",
@@ -1477,12 +1484,10 @@ class TestProfile:
                     is_saved = saved_value == scenario['value']
             
             # 生成截图描述
-            save_expected_str = "成功" if scenario['should_save'] else "失败"
-            save_actual_str = "成功" if is_saved else "失败"
-            error_expected_str = "有错误" if scenario['should_error'] else "无错误"
-            error_actual_str = "有错误" if has_error else "无错误"
+            expected_status = "成功" if scenario['should_save'] else "失败"
+            actual_status = "成功" if is_saved else "失败"
             
-            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{save_expected_str}/{error_expected_str}, 实际:{save_actual_str}/{error_actual_str}）"
+            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{expected_status}, 实际:{actual_status}）"
             
             allure.attach.file(
                 f"screenshots/{screenshot_path}",
@@ -1970,12 +1975,10 @@ class TestProfile:
                     is_saved = saved_value == scenario['value']
             
             # 生成截图描述
-            save_expected_str = "成功" if scenario['should_save'] else "失败"
-            save_actual_str = "成功" if is_saved else "失败"
-            error_expected_str = "有错误" if scenario['should_error'] else "无错误"
-            error_actual_str = "有错误" if has_error else "无错误"
+            expected_status = "成功" if scenario['should_save'] else "失败"
+            actual_status = "成功" if is_saved else "失败"
             
-            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{save_expected_str}/{error_expected_str}, 实际:{save_actual_str}/{error_actual_str}）"
+            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{expected_status}, 实际:{actual_status}）"
             
             allure.attach.file(
                 f"screenshots/{screenshot_path}",
@@ -2164,6 +2167,10 @@ class TestProfile:
         profile_page = logged_in_profile_page
         screenshot_idx = 1
         
+        # 引入随机模块以确保邮箱唯一性
+        import random
+        random_suffix = lambda: f"{datetime.now().strftime('%H%M%S')}{random.randint(100, 999)}"
+        
         # 获取原始Email
         original_email = profile_page.get_email_value()
         logger.info(f"原始Email: {original_email}")
@@ -2185,7 +2192,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "标准邮箱",
-                "value": f"user{datetime.now().strftime('%H%M%S')}@example.com",
+                "value": f"user{random_suffix()}@example.com",
                 "should_save": True,
                 "should_error": False,
                 "description": "标准邮箱格式（有效）",
@@ -2194,7 +2201,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "带点用户名",
-                "value": f"user.name{datetime.now().strftime('%H%M%S')}@example.com",
+                "value": f"user.name{random_suffix()}@example.com",
                 "should_save": True,
                 "should_error": False,
                 "description": "用户名包含点（有效）",
@@ -2203,7 +2210,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "带加号",
-                "value": f"user+tag{datetime.now().strftime('%H%M%S')}@example.com",
+                "value": f"user+tag{random_suffix()}@example.com",
                 "should_save": True,
                 "should_error": False,
                 "description": "用户名包含加号（有效）",
@@ -2212,7 +2219,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "子域名",
-                "value": f"test{datetime.now().strftime('%H%M%S')}@sub.example.org",
+                "value": f"test{random_suffix()}@sub.example.org",
                 "should_save": True,
                 "should_error": False,
                 "description": "包含子域名（有效）",
@@ -2221,7 +2228,7 @@ class TestProfile:
             {
                 "type": "format_valid",
                 "name": "带数字",
-                "value": f"user123@domain456.com",
+                "value": f"user{random_suffix()}@domain{random.randint(100, 999)}.com",
                 "should_save": True,
                 "should_error": False,
                 "description": "用户名和域名都包含数字（有效）",
@@ -2270,7 +2277,7 @@ class TestProfile:
             {
                 "type": "length_normal",
                 "name": "正常长度",
-                "value": f"normaluser{datetime.now().strftime('%H%M%S')}@example.com",
+                "value": f"normaluser{random_suffix()}@example.com",
                 "should_save": True,
                 "should_error": False,
                 "description": "正常长度邮箱",
@@ -2279,16 +2286,19 @@ class TestProfile:
             {
                 "type": "length_max",
                 "name": "最大长度256字符",
-                "value": "u" * 240 + "@example.com",  # 240+12=252字符（略小于256）
+                # 动态计算长度：总长256 - 域名12 = 用户名244
+                # 确保用户名部分唯一且长度正确
+                "value": (lambda r=random_suffix(): f"u{r}" + "u" * (244 - len(f"u{r}")) + "@example.com")(),
                 "should_save": True,
                 "should_error": False,
-                "description": "接近最大长度（边界值）",
+                "description": "最大长度256字符（边界值）",
                 "expected": "成功保存",
             },
             {
                 "type": "length_over",
                 "name": "超长257字符",
-                "value": "x" * 245 + "@example.com",  # 245+12=257字符
+                # 动态计算：总长257 - 域名12 = 用户名245
+                "value": (lambda r=random_suffix(): f"x{r}" + "x" * (245 - len(f"x{r}")) + "@example.com")(),
                 "should_save": False,
                 "should_error": False,  # Input maxlength限制，无HTML5验证错误
                 "description": "超过最大长度（边界值+1）",
@@ -2297,7 +2307,8 @@ class TestProfile:
             {
                 "type": "length_over",
                 "name": "极长300字符",
-                "value": "z" * 288 + "@example.com",  # 288+12=300字符
+                # 动态计算：总长300 - 域名12 = 用户名288
+                "value": (lambda r=random_suffix(): f"z{r}" + "z" * (288 - len(f"z{r}")) + "@example.com")(),
                 "should_save": False,
                 "should_error": False,  # Input maxlength限制，无HTML5验证错误
                 "description": "远超最大长度",
@@ -2489,12 +2500,10 @@ class TestProfile:
                 is_saved = saved_value == scenario['value']
             
             # 生成截图描述
-            save_expected_str = "成功" if scenario['should_save'] else "失败"
-            save_actual_str = "成功" if is_saved else "失败"
-            error_expected_str = "有错误" if scenario['should_error'] else "无错误"
-            error_actual_str = "有错误" if has_error else "无错误"
+            expected_status = "成功" if scenario['should_save'] else "失败"
+            actual_status = "成功" if is_saved else "失败"
             
-            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{save_expected_str}/{error_expected_str}, 实际:{save_actual_str}/{error_actual_str}）"
+            screenshot_desc = f"{screenshot_idx}-{scenario['name']}_保存后（预期:{expected_status}, 实际:{actual_status}）"
             
             allure.attach.file(
                 f"screenshots/{screenshot_path}",
