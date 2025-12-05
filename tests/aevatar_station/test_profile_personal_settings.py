@@ -202,6 +202,9 @@ def logged_in_page(page, test_data, request):
     try:
         from tests.aevatar_station.conftest import auto_register_and_login
         username, email, password = auto_register_and_login(page, request)
+        
+        # ⚡ 关键修复：确保设置账号信息到request.node，供后续测试用例使用
+        request.node._account_info = (username, email, password)
         logger.info(f"✅ 使用账号池账号: {username} 登录成功")
     except Exception as e:
         logger.error(f"❌ 自动注册/登录失败: {e}")
