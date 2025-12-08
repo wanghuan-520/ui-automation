@@ -8,6 +8,29 @@ import logging
 from pathlib import Path
 from playwright.sync_api import Browser, Page, BrowserContext
 
+def pytest_sessionstart(session):
+    """
+    【HyperEcho 守护】
+    在所有测试开始前运行一次。
+    功能：检查账号池，剔除被污染的账号，补充新账号，保证有20个健康账号
+    """
+    # 仅在主进程执行（避免 xdist worker 进程重复执行）
+    if not hasattr(session.config, 'workerinput'):
+        import subprocess
+        import sys
+        
+        # 定位脚本路径：tests/aevatar_station/conftest.py -> aevatar_station -> tests -> root
+        root_dir = Path(__file__).parent.parent.parent
+        script_path = root_dir / "scripts" / "clean_and_refill_account_pool.py"
+        
+        if script_path.exists():
+            try:
+                subprocess.run([sys.executable, str(script_path)], check=True)
+            except Exception as e:
+                print(f"⚠️ [HyperEcho] 账号池清洗失败: {e}")
+        else:
+            print(f"⚠️ [HyperEcho] 未找到清洗脚本: {script_path}")
+
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -50,7 +73,7 @@ def browser_type_launch_args(browser_type_launch_args):
             "--allow-insecure-localhost",  # 允许不安全的 localhost
             "--disable-gpu",  # 禁用 GPU（避免某些崩溃）
             "--disable-dev-shm-usage",  # 避免共享内存问题
-            "--no-sandbox",  # 禁用沙箱（已在默认参数中）
+            "--no-sandbox",  # 禁用沙箱
             "--disable-setuid-sandbox",  # 禁用 setuid 沙箱
             # ⚡ 并行执行优化：添加稳定性参数
             "--disable-background-networking",  # 禁用后台网络请求
@@ -58,9 +81,9 @@ def browser_type_launch_args(browser_type_launch_args):
             "--disable-renderer-backgrounding",  # 禁用渲染器后台化
             "--disable-backgrounding-occluded-windows",  # 禁用被遮挡窗口的后台化
             "--disable-ipc-flooding-protection",  # 禁用IPC洪水保护
-            # ⚡ 性能优化：以下参数可进一步提升性能（可选）
-            # "--disable-images",  # 禁用图片加载（如果测试不需要图片）
-            # "--disable-javascript",  # 禁用JavaScript（仅当测试不需要JS时）
+            "--disable-popup-blocking", # 禁用弹窗拦截
+            "--disable-notifications", # 禁用通知
+            "--disable-infobars", # 禁用信息栏
         ],
     }
 
@@ -631,10 +654,11 @@ def auto_register_and_login(page, request):
                 # 执行登录（添加账号锁定和密码错误检测）
                 try:
                     landing_page.click_sign_in()
-                    login_page.wait_for_load()
+                    # 简单等待登录页面出现，不使用复杂的load_state检查
+                    login_page.page.wait_for_timeout(2000)
                     
                     login_page.login(username=username, password=password)
-                    login_page.page.wait_for_timeout(1000)
+                    login_page.page.wait_for_timeout(2000)  # 增加等待时间
                 
                     landing_page.handle_ssl_warning()
                 except Exception as click_error:

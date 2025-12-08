@@ -4,6 +4,8 @@
 """
 import pytest
 import logging
+import allure
+from datetime import datetime
 from tests.aevatar_station.pages.landing_page import LandingPage
 from tests.aevatar_station.pages.login_page import LoginPage
 
@@ -53,70 +55,99 @@ class TestLogin:
         landing_page = LandingPage(page)
         login_page = LoginPage(page)
         
-        # 步骤1：导航到首页并点击Sign In
-        logger.info("步骤1: [Landing Page - Header右上角] 导航到首页")
-        landing_page.navigate()
-        assert landing_page.is_loaded(), "首页未正确加载"
-        logger.info("   ✓ 首页加载成功: https://localhost:3000/")
-        
-        logger.info("步骤2: [Landing Page - Header] 点击'Sign In'按钮")
-        landing_page.click_sign_in()
-        logger.info("   ✓ 已点击Sign In按钮，等待跳转到登录页")
-        
-        # 步骤2：等待登录页面加载
-        logger.info("\n步骤3: [Login Page] 等待ABP登录页面加载")
-        login_page.wait_for_load()
-        assert login_page.is_loaded(), "登录页面未正确加载"
-        current_url = login_page.get_current_url()
-        logger.info(f"   登录页面URL: {current_url}")
-        assert "44320" in current_url and "/Account/Login" in current_url, \
-            f"未跳转到正确的登录页面，当前URL: {current_url}"
-        logger.info("   ✓ ABP登录页面加载成功")
-        
-        # 步骤3-5：填写登录表单
-        valid_data = test_data["valid_login_data"][0]
-        logger.info("\n步骤4-6: [Login Form] 填写登录凭证")
-        logger.info(f"   Username: {valid_data['username']}")
-        logger.info(f"   Password: {'*' * len(valid_data['password'])} ({len(valid_data['password'])}位)")
-        logger.info(f"   Remember me: {valid_data.get('remember_me', False)}")
-        
-        login_page.login(
-            username=valid_data["username"],
-            password=valid_data["password"],
-            remember_me=valid_data.get("remember_me", False)
-        )
-        logger.info("   ✓ 登录信息已填写并提交")
-        
-        # 步骤7-9：验证登录成功
-        logger.info("\n步骤7-9: [验证] 确认登录成功")
-        logger.info("   等待页面跳转...")
-        page.wait_for_timeout(3000)
-        landing_page.handle_ssl_warning()
-        
-        # 验证点1：URL跳转
-        final_url = landing_page.get_current_url()
-        logger.info(f"   最终URL: {final_url}")
-        assert "localhost:3000" in final_url, f"URL跳转失败，应跳转到localhost:3000，当前: {final_url}"
-        logger.info("   ✓ 成功跳转到首页/Dashboard")
-        
-        # 验证点2：用户菜单显示
-        logger.info("   验证用户菜单按钮...")
-        assert landing_page.is_user_menu_visible(), "用户菜单按钮未显示"
-        logger.info("   ✓ Header右上角用户菜单按钮已显示")
-        
-        # 验证点3：登录状态
-        logger.info("   验证登录状态...")
-        assert landing_page.is_logged_in(), "登录状态验证失败"
-        logger.info("   ✓ 用户已成功登录系统")
-        
-        # 测试总结
-        logger.info("\n" + "=" * 60)
-        logger.info("✅ TC-FUNC-001执行成功")
-        logger.info("验证总结:")
-        logger.info("  ✓ URL跳转: https://localhost:3000/")
-        logger.info("  ✓ 用户菜单按钮显示")
-        logger.info("  ✓ 登录状态验证通过")
-        logger.info("=" * 60)
+        try:
+            # 步骤1：导航到首页并点击Sign In
+            logger.info("步骤1: [Landing Page - Header右上角] 导航到首页")
+            landing_page.navigate()
+            assert landing_page.is_loaded(), "首页未正确加载"
+            logger.info("   ✓ 首页加载成功: https://localhost:3000/")
+            
+            logger.info("步骤2: [Landing Page - Header] 点击'Sign In'按钮")
+            landing_page.click_sign_in()
+            logger.info("   ✓ 已点击Sign In按钮，等待跳转到登录页")
+            
+            # 步骤2：等待登录页面加载
+            logger.info("\n步骤3: [Login Page] 等待ABP登录页面加载")
+            login_page.wait_for_load()
+            assert login_page.is_loaded(), "登录页面未正确加载"
+            current_url = login_page.get_current_url()
+            logger.info(f"   登录页面URL: {current_url}")
+            assert "44320" in current_url and "/Account/Login" in current_url, \
+                f"未跳转到正确的登录页面，当前URL: {current_url}"
+            logger.info("   ✓ ABP登录页面加载成功")
+            
+            # 步骤3-5：填写登录表单
+            valid_data = test_data["valid_login_data"][0]
+            logger.info("\n步骤4-6: [Login Form] 填写登录凭证")
+            logger.info(f"   Username: {valid_data['username']}")
+            logger.info(f"   Password: {'*' * len(valid_data['password'])} ({len(valid_data['password'])}位)")
+            logger.info(f"   Remember me: {valid_data.get('remember_me', False)}")
+            
+            # 截图：填写前
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            page.screenshot(path=f"screenshots/login_filled_{timestamp}.png")
+            
+            login_page.login(
+                username=valid_data["username"],
+                password=valid_data["password"],
+                remember_me=valid_data.get("remember_me", False)
+            )
+            logger.info("   ✓ 登录信息已填写并提交")
+            
+            # 步骤7-9：验证登录成功
+            logger.info("\n步骤7-9: [验证] 确认登录成功")
+            logger.info("   等待页面跳转...")
+            page.wait_for_timeout(3000)
+            landing_page.handle_ssl_warning()
+            
+            # 验证点1：URL跳转
+            final_url = landing_page.get_current_url()
+            logger.info(f"   最终URL: {final_url}")
+            
+            # 截图：登录后状态
+            page.screenshot(path=f"screenshots/login_success_{timestamp}.png")
+            allure.attach.file(
+                f"screenshots/login_success_{timestamp}.png",
+                name="登录成功后页面",
+                attachment_type=allure.attachment_type.PNG
+            )
+            
+            assert "localhost:3000" in final_url, f"URL跳转失败，应跳转到localhost:3000，当前: {final_url}"
+            logger.info("   ✓ 成功跳转到首页/Dashboard")
+            
+            # 验证点2：用户菜单显示
+            logger.info("   验证用户菜单按钮...")
+            assert landing_page.is_user_menu_visible(), "用户菜单按钮未显示"
+            logger.info("   ✓ Header右上角用户菜单按钮已显示")
+            
+            # 验证点3：登录状态
+            logger.info("   验证登录状态...")
+            assert landing_page.is_logged_in(), "登录状态验证失败"
+            logger.info("   ✓ 用户已成功登录系统")
+            
+            # 测试总结
+            logger.info("\n" + "=" * 60)
+            logger.info("✅ TC-FUNC-001执行成功")
+            logger.info("验证总结:")
+            logger.info("  ✓ URL跳转: https://localhost:3000/")
+            logger.info("  ✓ 用户菜单按钮显示")
+            logger.info("  ✓ 登录状态验证通过")
+            logger.info("=" * 60)
+            
+        except Exception as e:
+            # 🔍 失败现场取证
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            screenshot_path = f"screenshots/login_fail_{timestamp}.png"
+            page.screenshot(path=screenshot_path)
+            logger.error(f"❌ 登录测试失败: {e}")
+            logger.error(f"   已保存失败截图: {screenshot_path}")
+            
+            # 保存HTML以分析DOM
+            html_path = f"screenshots/login_fail_{timestamp}.html"
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(page.content())
+            
+            raise e
     
     @pytest.mark.P0
     @pytest.mark.exception
@@ -201,8 +232,29 @@ class TestLogin:
         assert "localhost:3000" not in current_url, "无效凭证不应跳转到首页"
         logger.info("   ✓ 未跳转到首页（预期行为）")
         
-        # 注意：错误消息显示取决于ABP后端配置
-        logger.info("   ℹ️ 错误消息显示取决于ABP后端安全配置")
+        # 验证点3：检查是否有错误提示
+        error_found = False
+        # 常见的错误提示选择器
+        error_selectors = [
+            ".text-danger", 
+            ".alert-danger", 
+            "text=Invalid username or password",
+            "text=无效的用户名或密码"
+        ]
+        
+        for selector in error_selectors:
+            if page.is_visible(selector):
+                error_msg = page.text_content(selector)
+                logger.info(f"   ✓ 捕获到错误提示: {error_msg}")
+                error_found = True
+                break
+        
+        if not error_found:
+            logger.info("   ℹ️ 未检测到明显的错误提示文本，但行为符合预期（未登录）")
+        
+        # 截图：登录失败状态
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        page.screenshot(path=f"screenshots/login_invalid_creds_{timestamp}.png")
         
         # 测试总结
         logger.info("\n" + "=" * 60)
@@ -529,6 +581,15 @@ class TestLogin:
         logger.info(f"   登录状态: {is_logged_in}")
         assert not is_logged_in, "SQL注入不应成功登录系统"
         logger.info("   ✓ 用户处于未登录状态")
+        
+        # 截图：安全测试结果
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        page.screenshot(path=f"screenshots/sql_injection_blocked_{timestamp}.png")
+        allure.attach.file(
+            f"screenshots/sql_injection_blocked_{timestamp}.png",
+            name="SQL注入测试结果（应拦截）",
+            attachment_type=allure.attachment_type.PNG
+        )
         
         # 测试总结
         logger.info("\n" + "=" * 60)
@@ -946,4 +1007,3 @@ class TestLoginUsability:
             logger.info("  ✓ 密码初始状态为隐藏")
             logger.info("  ℹ️ 密码切换按钮不存在（UI设计）")
             logger.info("=" * 60)
-

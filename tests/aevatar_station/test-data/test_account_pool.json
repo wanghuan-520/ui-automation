@@ -1,177 +1,191 @@
 {
   "test_account_pool": [
     {
-      "username": "qatest__021",
-      "email": "qatest__021@testmail.com",
+      "username": "qatest_v3__007",
+      "email": "qatest_v3__007@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:27:28.992820",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__042",
+      "email": "qatest_v3__042@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:27:49.977851",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__036",
+      "email": "qatest_v3__036@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:27:53.765451",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__009",
+      "email": "qatest_v3__009@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:28:09.160411",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__023",
+      "email": "qatest_v3__023@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:28:13.766587",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__047",
+      "email": "qatest_v3__047@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:28:40.031406",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__040",
+      "email": "qatest_v3__040@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:28:41.327980",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__037",
+      "email": "qatest_v3__037@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:29:01.782202",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__058",
+      "email": "qatest_v3__058@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:30:04.090538",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__030",
+      "email": "qatest_v3__030@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:30:20.792585",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__017",
+      "email": "qatest_v3__017@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:30:32.174301",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__053",
+      "email": "qatest_v3__053@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:30:47.297202",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__051",
+      "email": "qatest_v3__051@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:30:52.904163",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__034",
+      "email": "qatest_v3__034@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:31:14.132350",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__059",
+      "email": "qatest_v3__059@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:31:45.885337",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__052",
+      "email": "qatest_v3__052@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:32:03.201178",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__032",
+      "email": "qatest_v3__032@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:32:05.815650",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__055",
+      "email": "qatest_v3__055@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:32:39.620525",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__045",
+      "email": "qatest_v3__045@testmail.com",
+      "password": "TestPass123!",
+      "in_use": true,
+      "last_used": "2025-12-08T08:33:07.050193",
+      "is_locked": false,
+      "locked_reason": null
+    },
+    {
+      "username": "qatest_v3__057",
+      "email": "qatest_v3__057@testmail.com",
       "password": "TestPass123!",
       "in_use": false,
-      "last_used": "2025-12-05T14:10:58.150889",
-      "is_locked": true,
-      "locked_reason": "密码被污染，无法登录"
-    },
-    {
-      "username": "qatest__022",
-      "email": "qatest__022@testmail.com",
-      "password": "TestPass123!",
-      "in_use": false,
-      "last_used": "2025-12-05T14:14:00.133294",
-      "is_locked": true,
-      "locked_reason": "密码被污染，无法登录"
-    },
-    {
-      "username": "qatest__023",
-      "email": "qatest__023@testmail.com",
-      "password": "TestPass123!",
-      "in_use": false,
-      "last_used": "2025-12-05T14:00:05.358962",
-      "is_locked": true,
-      "locked_reason": "密码被污染，无法登录"
-    },
-    {
-      "username": "qatest__024",
-      "email": "qatest__024@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:54:04.913709",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__025",
-      "email": "qatest__025@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:00:10.685275",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__026",
-      "email": "qatest__026@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:00:10.691559",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__027",
-      "email": "qatest__027@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:00:10.971164",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__028",
-      "email": "qatest__028@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:00:10.989007",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__029",
-      "email": "qatest__029@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:00:11.339894",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__030",
-      "email": "qatest__030@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:00:11.354104",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__031",
-      "email": "qatest__031@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:00:49.237561",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__032",
-      "email": "qatest__032@testmail.com",
-      "password": "TestPass123!",
-      "in_use": false,
-      "last_used": "2025-12-05T14:01:15.128409",
-      "is_locked": true,
-      "locked_reason": "密码被污染，无法登录"
-    },
-    {
-      "username": "qatest__033",
-      "email": "qatest__033@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:01:49.980758",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__034",
-      "email": "qatest__034@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:04:07.120446",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__035",
-      "email": "qatest__035@testmail.com",
-      "password": "TestPass123!",
-      "in_use": false,
-      "last_used": "2025-12-05T14:04:07.221074",
-      "is_locked": true,
-      "locked_reason": "密码被污染，无法登录"
-    },
-    {
-      "username": "qatest__036",
-      "email": "qatest__036@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:04:25.046721",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__037",
-      "email": "qatest__037@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:04:44.817794",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__038",
-      "email": "qatest__038@testmail.com",
-      "password": "TestPass123!",
-      "in_use": false,
-      "last_used": "2025-12-05T14:04:47.182053",
-      "is_locked": true,
-      "locked_reason": "密码被污染，无法登录"
-    },
-    {
-      "username": "qatest__039",
-      "email": "qatest__039@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:05:01.232237",
-      "is_locked": false
-    },
-    {
-      "username": "qatest__040",
-      "email": "qatest__040@testmail.com",
-      "password": "TestPass123!",
-      "in_use": true,
-      "last_used": "2025-12-05T14:05:19.664703",
-      "is_locked": false
+      "last_used": "2025-12-08T08:26:50.938072",
+      "is_locked": false,
+      "locked_reason": null
     }
   ],
   "pool_config": {
     "pool_size": 20,
     "auto_register_fallback": true,
     "cleanup_after_test": false,
-    "account_prefix": "qatest__",
+    "account_prefix": "qatest_v3__",
     "account_lock_wait_time": 300,
     "max_retry_on_lock": 3
   }

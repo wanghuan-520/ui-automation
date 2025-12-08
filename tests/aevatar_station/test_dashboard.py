@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 def logged_in_dashboard(browser, test_data):
     """
     登录后的Dashboard页面fixture - 整个测试类只登录一次
+    ⚡ 增强版：登录失败诊断 + 自动重试机制
     """
     # 创建新的浏览器上下文和页面
     context = browser.new_context(
@@ -25,43 +26,61 @@ def logged_in_dashboard(browser, test_data):
     )
     page = context.new_page()
     
-    # 登录流程
-    landing_page = LandingPage(page)
-    login_page = LoginPage(page)
-    
-    landing_page.navigate()
-    landing_page.click_sign_in()
-    login_page.wait_for_load()
-    
-    valid_data = test_data["valid_login_data"][0]
-    logger.info(f"使用账号登录: {valid_data['username']}")
-    
-    # 使用正确的选择器填写表单
-    page.fill("#LoginInput_UserNameOrEmailAddress", valid_data["username"])
-    page.fill("#LoginInput_Password", valid_data["password"])
-    page.click("button[type='submit']")
-    
-    # 等待登录完成
     try:
-        page.wait_for_function(
-            "() => !window.location.href.includes('/Account/Login')",
-            timeout=30000
-        )
-        logger.info(f"登录跳转完成，当前URL: {page.url}")
-    except Exception as e:
-        logger.error(f"登录可能失败，当前URL: {page.url}")
-        page.screenshot(path="screenshots/login_failed_debug.png")
-        raise Exception(f"登录失败: {e}")
-    
-    landing_page.handle_ssl_warning()
-    page.wait_for_timeout(2000)
-    
-    logger.info("登录成功，会话将在整个测试类中复用")
-    
-    yield page
-    
-    # 测试类结束后清理
-    context.close()
+        # 登录流程
+        landing_page = LandingPage(page)
+        login_page = LoginPage(page)
+        
+        landing_page.navigate()
+        landing_page.click_sign_in()
+        login_page.wait_for_load()
+        
+        valid_data = test_data["valid_login_data"][0]
+        logger.info(f"使用账号登录: {valid_data['username']}")
+        
+        # 使用正确的选择器填写表单
+        page.fill("#LoginInput_UserNameOrEmailAddress", valid_data["username"])
+        page.fill("#LoginInput_Password", valid_data["password"])
+        page.click("button[type='submit']")
+        
+        # 等待登录完成
+        try:
+            page.wait_for_function(
+                "() => !window.location.href.includes('/Account/Login')",
+                timeout=30000
+            )
+            logger.info(f"✅ 登录跳转完成，当前URL: {page.url}")
+        except Exception as e:
+            logger.error(f"❌ 登录超时或失败，当前URL: {page.url}")
+            
+            # 🔍 深度诊断：保存页面现场
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                # 截图
+                screenshot_path = f"screenshots/login_failed_{timestamp}.png"
+                page.screenshot(path=screenshot_path)
+                logger.error(f"   已保存失败截图: {screenshot_path}")
+                
+                # HTML Dump
+                html_path = f"screenshots/login_failed_{timestamp}.html"
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(page.content())
+                logger.error(f"   已保存页面HTML: {html_path}")
+            except:
+                pass
+            
+            raise Exception(f"登录失败: {e}")
+        
+        landing_page.handle_ssl_warning()
+        page.wait_for_timeout(2000)
+        
+        logger.info("✅ 登录成功，会话将在整个测试类中复用")
+        
+        yield page
+        
+    finally:
+        # 测试类结束后清理
+        context.close()
 
 
 @pytest.fixture(scope="function")
@@ -74,7 +93,14 @@ def dashboard_page(logged_in_dashboard):
     
     # 导航到Dashboard页面
     dashboard = DashboardPage(page)
-    dashboard.navigate()
+    try:
+        dashboard.navigate()
+    except Exception as e:
+        # 🔍 导航失败诊断
+        logger.error(f"❌ 导航到Dashboard失败: {e}")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        page.screenshot(path=f"screenshots/nav_failed_{timestamp}.png")
+        raise
     
     return dashboard
 
@@ -107,11 +133,31 @@ class TestDashboard:
         - 浏览器标题包含"Aevatar"
         - 无加载错误或超时
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-001: 验证Dashboard页面加载")
+        logger.info("=" * 60)
         
         # 验证页面加载完成
-        assert dashboard_page.is_loaded(), "Dashboard页面未正确加载"
+        try:
+            is_loaded = dashboard_page.is_loaded()
+            assert is_loaded, "Dashboard页面未正确加载"
+        except Exception as e:
+            # 🔍 深度诊断：页面加载失败
+            logger.error("❌ Dashboard页面加载失败，开始诊断...")
+            logger.error(f"   当前URL: {dashboard_page.page.url}")
+            
+            # HTML Dump
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                with open(f"screenshots/dashboard_load_failed_{timestamp}.html", "w", encoding="utf-8") as f:
+                    f.write(dashboard_page.page.content())
+                logger.error(f"   已保存HTML快照: dashboard_load_failed_{timestamp}.html")
+            except:
+                pass
+            raise e
         
+        logger.info("   ✓ Dashboard页面加载检查通过")
+
         # 截图：页面加载完成
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         screenshot_path = f"dashboard_initial_load_{timestamp}.png"
@@ -123,9 +169,12 @@ class TestDashboard:
         )
         
         # 验证页面标题
-        assert "Aevatar" in dashboard_page.page.title(), "页面标题不正确"
+        page_title = dashboard_page.page.title()
+        logger.info(f"   当前页面标题: {page_title}")
+        assert "Aevatar" in page_title, f"页面标题不正确，期望包含'Aevatar'，实际: {page_title}"
+        logger.info("   ✓ 页面标题验证通过")
         
-        logger.info("TC-DASH-001执行成功")
+        logger.info("✅ TC-DASH-001执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
@@ -149,11 +198,15 @@ class TestDashboard:
         - 消息包含"Welcome back"文本
         - 消息可能包含用户名（个性化）
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-002: 验证欢迎信息显示")
+        logger.info("=" * 60)
         
         # 获取欢迎消息
         welcome_msg = dashboard_page.get_welcome_message()
+        logger.info(f"   获取到欢迎消息: '{welcome_msg}'")
         assert "Welcome back" in welcome_msg, "欢迎消息不包含'Welcome back'"
+        logger.info("   ✓ 欢迎消息内容验证通过")
         
         # 截图：欢迎区域
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -165,8 +218,7 @@ class TestDashboard:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info(f"欢迎消息: {welcome_msg}")
-        logger.info("TC-DASH-002执行成功")
+        logger.info("✅ TC-DASH-002执行成功")
     
     @pytest.mark.P0
     @pytest.mark.functional
@@ -196,13 +248,17 @@ class TestDashboard:
         - 用户姓名和邮箱正确显示
         - 信息与登录用户一致
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-003: 验证用户信息卡片")
+        logger.info("=" * 60)
         
         # 验证用户信息卡片可见
         assert dashboard_page.is_user_profile_card_visible(), "用户信息卡片不可见"
+        logger.info("   ✓ 用户信息卡片可见")
         
         # 验证认证状态
         assert dashboard_page.is_authenticated(), "认证状态徽章应该显示"
+        logger.info("   ✓ 认证状态徽章已显示")
         
         # 截图：用户信息卡片
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -217,10 +273,10 @@ class TestDashboard:
         # 获取并记录用户信息
         user_name = dashboard_page.get_user_name()
         user_email = dashboard_page.get_user_email()
-        logger.info(f"用户姓名: {user_name}")
-        logger.info(f"用户邮箱: {user_email}")
+        logger.info(f"   用户姓名: {user_name}")
+        logger.info(f"   用户邮箱: {user_email}")
         
-        logger.info("TC-DASH-003执行成功")
+        logger.info("✅ TC-DASH-003执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
@@ -244,11 +300,14 @@ class TestDashboard:
         - 状态为"已验证"或"未验证"
         - 状态与实际账户状态一致
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-004: 验证邮箱验证状态")
+        logger.info("=" * 60)
         
         # 检查验证状态
         is_verified = dashboard_page.is_email_verified()
-        logger.info(f"邮箱验证状态: {'已验证' if is_verified else '未验证'}")
+        status_text = '已验证' if is_verified else '未验证'
+        logger.info(f"   邮箱验证状态: {status_text}")
         
         # 截图：验证状态
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -256,11 +315,11 @@ class TestDashboard:
         dashboard_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
-            name="验证状态显示",
+            name=f"验证状态显示({status_text})",
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-004执行成功")
+        logger.info("✅ TC-DASH-004执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
@@ -284,11 +343,14 @@ class TestDashboard:
         - 状态为"已验证"或"未验证"
         - 状态与实际账户状态一致
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-005: 验证手机验证状态")
+        logger.info("=" * 60)
         
         # 检查验证状态
         is_verified = dashboard_page.is_phone_verified()
-        logger.info(f"手机验证状态: {'已验证' if is_verified else '未验证'}")
+        status_text = '已验证' if is_verified else '未验证'
+        logger.info(f"   手机验证状态: {status_text}")
         
         # 截图：验证状态
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -296,11 +358,11 @@ class TestDashboard:
         dashboard_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
-            name="手机验证状态",
+            name=f"手机验证状态({status_text})",
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-005执行成功")
+        logger.info("✅ TC-DASH-005执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
@@ -326,14 +388,17 @@ class TestDashboard:
         - 状态值清晰可读
         - 状态反映系统实际配置
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-006: 验证Multi-tenancy状态卡片")
+        logger.info("=" * 60)
         
         # 获取多租户状态
         status = dashboard_page.get_multi_tenancy_status()
-        logger.info(f"多租户状态: {status}")
+        logger.info(f"   多租户状态: {status}")
         
         # 验证状态为Enabled或Disabled之一
         assert status in ["Enabled", "Disabled"], f"多租户状态应该是Enabled或Disabled，实际为: {status}"
+        logger.info("   ✓ 状态值验证通过")
         
         # 截图：系统状态卡片
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -345,7 +410,7 @@ class TestDashboard:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-006执行成功")
+        logger.info("✅ TC-DASH-006执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
@@ -371,14 +436,17 @@ class TestDashboard:
         - 如果多租户启用，显示租户名称
         - 如果多租户未启用，显示相应提示
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-007: 验证Current Tenant卡片")
+        logger.info("=" * 60)
         
         # 获取当前租户
         tenant = dashboard_page.get_current_tenant()
-        logger.info(f"当前租户: {tenant}")
+        logger.info(f"   当前租户: {tenant}")
         
         # 验证租户信息存在
         assert tenant != "", "当前租户信息应该存在"
+        logger.info("   ✓ 租户信息存在")
         
         # 截图：当前租户卡片
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -390,7 +458,7 @@ class TestDashboard:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-007执行成功")
+        logger.info("✅ TC-DASH-007执行成功")
     
     @pytest.mark.P2
     @pytest.mark.functional
@@ -415,11 +483,13 @@ class TestDashboard:
         - 会话信息包含相关详情
         - 信息反映当前用户会话
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-008: 验证Session状态卡片")
+        logger.info("=" * 60)
         
         # 获取会话状态
         session_status = dashboard_page.get_session_status()
-        logger.info(f"会话状态: {session_status}")
+        logger.info(f"   会话状态: {session_status}")
         
         # 截图：会话状态卡片
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -431,7 +501,7 @@ class TestDashboard:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-008执行成功")
+        logger.info("✅ TC-DASH-008执行成功")
     
     @pytest.mark.P2
     @pytest.mark.functional
@@ -457,17 +527,20 @@ class TestDashboard:
         - 文化设置清晰（如：en-US, zh-CN）
         - 配置信息不为空
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-009: 验证Localization配置信息")
+        logger.info("=" * 60)
         
         # 验证系统配置卡片可见
         assert dashboard_page.is_system_config_card_visible(), "系统配置卡片不可见"
         
         # 获取当前文化设置
         culture = dashboard_page.get_current_culture()
-        logger.info(f"当前文化: {culture}")
+        logger.info(f"   当前文化: {culture}")
         
         # 验证文化设置存在
         assert culture != "", "当前文化设置应该存在"
+        logger.info("   ✓ 文化设置验证通过")
         
         # 截图：配置信息
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -479,7 +552,7 @@ class TestDashboard:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-009执行成功")
+        logger.info("✅ TC-DASH-009执行成功")
     
     @pytest.mark.P2
     @pytest.mark.functional
@@ -504,11 +577,13 @@ class TestDashboard:
         - 时区格式准确（如：UTC, Asia/Shanghai）
         - 配置反映系统设置
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-010: 验证Timing配置信息")
+        logger.info("=" * 60)
         
         # 获取时区设置
         time_zone = dashboard_page.get_time_zone()
-        logger.info(f"时区设置: {time_zone}")
+        logger.info(f"   时区设置: {time_zone}")
         
         # 截图：时区配置
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -520,7 +595,7 @@ class TestDashboard:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-010执行成功")
+        logger.info("✅ TC-DASH-010执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
@@ -545,15 +620,18 @@ class TestDashboard:
         - 功能数量为有效整数（≥0）
         - 配置反映系统实际状态
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-011: 验证Features配置信息")
+        logger.info("=" * 60)
         
         # 获取启用的功能数量
         features_count = dashboard_page.get_enabled_features_count()
-        logger.info(f"启用的功能数量: {features_count}")
+        logger.info(f"   启用的功能数量: {features_count}")
         
         # 验证返回值是数字
         assert isinstance(features_count, int), "功能数量应该是整数"
         assert features_count >= 0, "功能数量不应该是负数"
+        logger.info("   ✓ 功能数量格式验证通过")
         
         # 截图：功能配置
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -565,7 +643,7 @@ class TestDashboard:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-011执行成功")
+        logger.info("✅ TC-DASH-011执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
@@ -589,11 +667,13 @@ class TestDashboard:
         - 如果不是Host，徽章不显示
         - 徽章状态正确反映用户身份
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-013: 验证Host标识显示")
+        logger.info("=" * 60)
         
         # 检查是否为Host用户
         is_host = dashboard_page.is_host_user()
-        logger.info(f"是否为Host用户: {is_host}")
+        logger.info(f"   是否为Host用户: {is_host}")
         
         # 截图：Host标识
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -605,7 +685,7 @@ class TestDashboard:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("TC-DASH-013执行成功")
+        logger.info("✅ TC-DASH-013执行成功")
     
     @pytest.mark.P2
     @pytest.mark.functional
@@ -637,7 +717,9 @@ class TestDashboard:
         TC-DASH-014: 验证Dashboard数据刷新
         验证页面刷新后数据保持一致
         """
+        logger.info("=" * 60)
         logger.info("开始执行TC-DASH-014: 验证Dashboard数据刷新")
+        logger.info("=" * 60)
         
         # 记录刷新前的数据
         before_refresh = {
@@ -646,12 +728,14 @@ class TestDashboard:
             "culture": dashboard_page.get_current_culture(),
             "features": dashboard_page.get_enabled_features_count()
         }
-        logger.info(f"刷新前数据: {before_refresh}")
+        logger.info(f"   刷新前数据: {before_refresh}")
         
         # 刷新页面
+        logger.info("   ⏳ 正在刷新页面...")
         dashboard_page.page.reload()
         dashboard_page.page.wait_for_load_state("domcontentloaded")
         dashboard_page.page.wait_for_timeout(2000)
+        logger.info("   ✓ 页面刷新完成")
         
         # 记录刷新后的数据
         after_refresh = {
@@ -660,7 +744,7 @@ class TestDashboard:
             "culture": dashboard_page.get_current_culture(),
             "features": dashboard_page.get_enabled_features_count()
         }
-        logger.info(f"刷新后数据: {after_refresh}")
+        logger.info(f"   刷新后数据: {after_refresh}")
         
         # 截图：刷新后页面
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -674,6 +758,6 @@ class TestDashboard:
         
         # 验证数据一致性
         assert before_refresh == after_refresh, "刷新前后数据应该保持一致"
+        logger.info("   ✓ 数据一致性验证通过")
         
-        logger.info("TC-DASH-014执行成功")
-
+        logger.info("✅ TC-DASH-014执行成功")

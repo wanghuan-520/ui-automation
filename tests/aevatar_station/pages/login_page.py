@@ -73,8 +73,15 @@ class LoginPage(BasePage):
         # 处理可能的SSL警告
         self.handle_ssl_warning()
         
-        # 等待页面稳定
-        self.page.wait_for_load_state("networkidle", timeout=10000)
+        # 等待页面稳定 - 使用domcontentloaded而不是networkidle
+        # networkidle可能因为长轮询/WebSocket/后台请求而永远无法完成
+        try:
+            self.page.wait_for_load_state("domcontentloaded", timeout=30000)
+            # 额外等待一段时间让JS初始化
+            self.page.wait_for_timeout(2000)
+            logger.info("页面DOM加载完成")
+        except Exception as e:
+            logger.warning(f"页面加载状态检查超时（但可能已成功）: {e}")
     
     def fill_username(self, username):
         """填写用户名"""

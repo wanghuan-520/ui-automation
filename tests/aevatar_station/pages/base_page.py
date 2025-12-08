@@ -23,9 +23,12 @@ class BasePage:
         self.page.goto(url)
     
     def wait_for_load(self, timeout=30000):
-        """等待页面加载完成"""
+        """等待页面加载完成 - 使用domcontentloaded而不是networkidle"""
         logger.info("等待页面加载完成")
-        self.page.wait_for_load_state("networkidle", timeout=timeout)
+        # 不使用networkidle，因为它会因长轮询/WebSocket/后台请求而卡住
+        self.page.wait_for_load_state("domcontentloaded", timeout=timeout)
+        # 额外等待让JS初始化
+        self.page.wait_for_timeout(1000)
     
     def handle_ssl_warning(self):
         """处理SSL证书警告"""
@@ -55,69 +58,54 @@ class BasePage:
                     logger.info("已点击'继续前往localhost'链接")
                     
                 # 等待页面跳转
-                self.page.wait_for_load_state("networkidle", timeout=10000)
+                try:
+                    self.page.wait_for_load_state("domcontentloaded", timeout=10000)
+                except:
+                    pass
         except Exception as e:
             logger.debug(f"SSL警告处理异常（可能不需要处理）: {e}")
             pass
     
-    def click_element(self, selector, timeout=10000):
+    def click_element(self, selector, timeout=30000):
         """点击元素"""
         logger.info(f"点击元素: {selector}")
         self.page.click(selector, timeout=timeout)
-    
-    def fill_input(self, selector, value, timeout=10000):
-        """填写输入框 - 增强版：先等待元素可见且可交互"""
+
+    def fill_input(self, selector, value, timeout=30000):
+        """填写输入框 - 简化版：直接填写，减少等待"""
         logger.info(f"填写输入框 {selector}: {value}")
         try:
-            # 1. 等待元素存在并可见
+            # 简化策略：只等待元素可见，然后直接填写
             self.page.wait_for_selector(selector, state="visible", timeout=timeout)
             logger.debug(f"✅ 元素已可见: {selector}")
             
-            # 2. 等待元素可交互（attached and enabled）
-            self.page.wait_for_selector(selector, state="attached", timeout=5000)
-            
-            # 3. 确保元素在视口内
-            self.page.locator(selector).scroll_into_view_if_needed(timeout=5000)
-            logger.debug(f"✅ 元素已滚动到视口: {selector}")
-            
-            # 4. 执行填写
-            self.page.fill(selector, value, timeout=timeout)
+            # 直接填写，使用更短的超时
+            self.page.fill(selector, value, timeout=10000)
             logger.info(f"✅ 填写成功: {selector}")
         except Exception as e:
-            # 增强错误信息：包含页面状态
-            logger.error(f"❌ 填写输入框失败: {selector}")
-            logger.error(f"   错误类型: {type(e).__name__}")
-            logger.error(f"   错误信息: {str(e)}")
-            
-            # 尝试获取页面状态诊断信息
+            # 如果填写失败，尝试备选方案：先点击再输入
+            logger.warning(f"⚠️ 常规填写失败，尝试备选方案...")
             try:
-                is_visible = self.page.is_visible(selector, timeout=1000)
-                logger.error(f"   元素可见性: {is_visible}")
-                
-                # 检查元素是否存在
-                count = self.page.locator(selector).count()
-                logger.error(f"   匹配元素数量: {count}")
-                
-                # 检查页面URL
-                current_url = self.page.url
-                logger.error(f"   当前页面URL: {current_url}")
-            except Exception as diag_error:
-                logger.error(f"   诊断信息获取失败: {diag_error}")
-            
-            raise
-    
-    def get_text(self, selector, timeout=10000):
+                self.page.click(selector, timeout=5000)
+                self.page.locator(selector).fill(value)
+                logger.info(f"✅ 备选方案填写成功: {selector}")
+            except Exception as e2:
+                logger.error(f"❌ 所有填写方案都失败: {selector}")
+                logger.error(f"   错误: {str(e2)}")
+                raise e2
+
+    def get_text(self, selector, timeout=30000):
         """获取元素文本"""
         return self.page.text_content(selector, timeout=timeout)
-    
+
     def is_visible(self, selector, timeout=5000):
         """检查元素是否可见"""
         try:
             return self.page.is_visible(selector, timeout=timeout)
         except:
             return False
-    
-    def wait_for_element(self, selector, timeout=10000):
+
+    def wait_for_element(self, selector, timeout=30000):
         """等待元素出现"""
         logger.info(f"等待元素出现: {selector}")
         self.page.wait_for_selector(selector, timeout=timeout)

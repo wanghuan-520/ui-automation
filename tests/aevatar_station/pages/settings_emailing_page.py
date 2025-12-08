@@ -133,7 +133,8 @@ class SettingsEmailingPage(BasePage):
             save_btn = self.page.locator(self.SAVE_BUTTON).first
             if save_btn.is_visible(timeout=2000):
                 save_btn.click()
-                self.page.wait_for_load_state("networkidle")
+                # 优化：不使用networkidle
+                self.page.wait_for_timeout(2000)
                 logger.info("保存按钮已点击")
             else:
                 logger.warning("未找到保存按钮，可能是自动保存")

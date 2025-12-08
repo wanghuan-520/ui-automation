@@ -85,7 +85,8 @@ class ProfileSettingsPage(BasePage):
         
         # 等待网络请求完成
         logger.info("等待保存操作完成...")
-        self.page.wait_for_load_state("networkidle", timeout=10000)
+        # 优化：不使用networkidle，直接等待成功消息或超时
+        self.page.wait_for_timeout(2000)
         
         # 尝试等待成功消息，确保后端处理完成
         try:

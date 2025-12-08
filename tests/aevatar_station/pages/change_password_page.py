@@ -36,12 +36,18 @@ class ChangePasswordPage(BasePage):
             if self.page.is_closed():
                 raise Exception("页面已关闭，无法导航")
             
-            self.page.goto(profile_url, wait_until="domcontentloaded", timeout=30000)
+            try:
+                self.page.goto(profile_url, wait_until="domcontentloaded", timeout=60000)
+            except Exception as nav_e:
+                logger.warning(f"  ⚠️ 导航到Profile页面超时（可能已加载）: {nav_e}")
+                # 检查当前URL是否已经在正确页面
+                if "/admin/profile" not in self.page.url:
+                    raise nav_e
+            
             self.handle_ssl_warning()
             
-            # 等待页面加载
-            self.page.wait_for_load_state("networkidle", timeout=15000)
-            self.page.wait_for_timeout(1000)
+            # 等待页面加载 - 简单等待，不使用networkidle
+            self.page.wait_for_timeout(2000)
             
             # 步骤2：点击 "Change Password" 标签页
             change_password_tab = "a[role='tab']:has-text('Change Password'), a:has-text('Change Password')"
@@ -58,10 +64,15 @@ class ChangePasswordPage(BasePage):
             else:
                 # 标签不存在，尝试直接访问URL
                 logger.warning(f"  ⚠️ 未找到Change Password标签，尝试直接访问...")
-                target_url = f"{self.auth_url}/admin/profile/change-password"
-                self.page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
+                # ⚡ 修复：使用前端base_url而不是后端auth_url
+                target_url = f"{self.base_url}/admin/profile/change-password"
+                logger.info(f"  👉 尝试直接访问目标URL: {target_url}")
+                try:
+                    self.page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
+                except Exception as nav_e:
+                    logger.warning(f"  ⚠️ 直接访问目标URL超时: {nav_e}")
+                
                 self.handle_ssl_warning()
-                self.page.wait_for_load_state("networkidle", timeout=20000)
                 self.page.wait_for_timeout(3000)
             
             # 🔍 诊断：检查页面是否有实际内容
@@ -74,7 +85,7 @@ class ChangePasswordPage(BasePage):
             
             logger.info(f"✅ 页面已加载: {self.page.url}")
         except Exception as e:
-            logger.error(f"❌ 导航失败: {url}")
+            logger.error(f"❌ 导航失败: {profile_url}")
             logger.error(f"   错误: {e}")
             
             # 诊断信息

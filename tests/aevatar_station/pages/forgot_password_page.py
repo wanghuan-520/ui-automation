@@ -102,7 +102,7 @@ class ForgotPasswordPage(BasePage):
         self.click_submit_button()
         
         # 等待页面响应
-        self.page.wait_for_load_state("networkidle", timeout=10000)
+        # 优化：不使用networkidle
         self.page.wait_for_timeout(2000)
         
         logger.info("忘记密码请求已提交")
