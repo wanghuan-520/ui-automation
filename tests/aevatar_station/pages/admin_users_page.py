@@ -99,6 +99,18 @@ class AdminUsersPage(BasePage):
         self.PERMISSION_SAVE = "button:has-text('Save Changes')"
         self.PERMISSION_CANCEL = "button:has-text('Cancel')"
         
+        # 权限页面 - 统计信息
+        self.PERMISSION_TOTAL_COUNT = "text=/\\d+/ >> nth=0"  # Total Permissions数字
+        self.PERMISSION_GRANTED_COUNT = "text=/\\d+/ >> nth=1"  # Granted数字
+        self.PERMISSION_NOT_GRANTED_COUNT = "text=/\\d+/ >> nth=2"  # Not Granted数字
+        
+        # 权限页面 - Tab和权限项
+        self.PERMISSION_TAB = "[role='tab']"
+        self.PERMISSION_TABPANEL = "[role='tabpanel']"
+        self.PERMISSION_GRANT_BUTTON = "button:has-text('Grant')"
+        self.PERMISSION_REVOKE_BUTTON = "button:has-text('Revoke')"
+        self.PERMISSION_UNSAVED_CHANGES = "text=Unsaved changes"
+        
         # 提示消息 - 更全面的选择器
         self.SUCCESS_MESSAGE = ".toast-success, .alert-success, [role='alert']:has-text('Success'), .swal2-success, .ant-message-success, .notification-success, .abp-toast-success"
         self.ERROR_MESSAGE = ".toast-error, .alert-danger, [role='alert']:has-text('error'), .swal2-error, .ant-message-error"
@@ -338,11 +350,246 @@ class AdminUsersPage(BasePage):
         except:
             return False
     
-    def click_permission_back(self):
-        """点击权限页面的返回按钮"""
+    def click_permission_back(self, handle_unsaved: bool = True):
+        """点击权限页面的返回按钮
+        
+        Args:
+            handle_unsaved: 是否处理未保存更改的对话框（默认点击确认离开）
+        """
         logger.info("点击权限页面返回按钮")
         self.page.click(self.PERMISSION_BACK_BUTTON)
+        
+        # 处理可能出现的未保存更改确认对话框
+        if handle_unsaved:
+            try:
+                self.page.wait_for_timeout(500)
+                # 检查是否有confirm对话框，如果有就接受
+                self.page.on("dialog", lambda dialog: dialog.accept())
+            except:
+                pass
+        
         self.page.wait_for_timeout(1000)
+    
+    def get_permission_summary(self) -> dict:
+        """获取权限摘要信息
+        
+        Returns:
+            dict: {"total": int, "granted": int, "not_granted": int}
+        """
+        logger.info("获取权限摘要信息")
+        try:
+            summary = {"total": 0, "granted": 0, "not_granted": 0}
+            
+            # 查找包含数字的元素
+            summary_section = self.page.locator("text=Permission Summary").locator("..")
+            numbers = summary_section.locator("text=/^\\d+$/").all()
+            
+            if len(numbers) >= 3:
+                summary["total"] = int(numbers[0].text_content())
+                summary["granted"] = int(numbers[1].text_content())
+                summary["not_granted"] = int(numbers[2].text_content())
+            
+            logger.info(f"权限摘要: {summary}")
+            return summary
+        except Exception as e:
+            logger.error(f"获取权限摘要失败: {e}")
+            return {"total": 0, "granted": 0, "not_granted": 0}
+    
+    def click_grant_all_permissions(self):
+        """点击Grant All按钮授予所有权限"""
+        logger.info("点击Grant All按钮")
+        self.page.click(self.PERMISSION_GRANT_ALL)
+        self.page.wait_for_timeout(1000)
+    
+    def click_permission_save(self):
+        """点击Save Changes按钮保存权限更改"""
+        logger.info("点击Save Changes按钮")
+        try:
+            save_btn = self.page.locator(self.PERMISSION_SAVE)
+            if save_btn.is_enabled(timeout=2000):
+                save_btn.click()
+                self.page.wait_for_timeout(2000)
+                return True
+            else:
+                logger.warning("Save Changes按钮不可用")
+                return False
+        except Exception as e:
+            logger.error(f"点击Save Changes失败: {e}")
+            return False
+    
+    def click_permission_cancel(self):
+        """点击Cancel按钮取消权限更改"""
+        logger.info("点击Cancel按钮")
+        self.page.click(self.PERMISSION_CANCEL)
+        self.page.wait_for_timeout(1000)
+    
+    def grant_permission_by_name(self, permission_name: str) -> bool:
+        """授予指定名称的权限
+        
+        Args:
+            permission_name: 权限名称，如 "AbpIdentity.Roles"
+        
+        Returns:
+            bool: 是否成功授予
+        """
+        logger.info(f"授予权限: {permission_name}")
+        try:
+            # 查找权限项
+            permission_item = self.page.locator(f"text={permission_name}").first
+            if permission_item.is_visible(timeout=3000):
+                # 找到对应的Grant按钮
+                parent = permission_item.locator("xpath=ancestor::div[contains(@class, 'flex')]").first
+                grant_btn = parent.locator("button:has-text('Grant')").first
+                if grant_btn.is_visible(timeout=2000):
+                    grant_btn.click()
+                    self.page.wait_for_timeout(500)
+                    logger.info(f"已授予权限: {permission_name}")
+                    return True
+            logger.warning(f"未找到权限或Grant按钮: {permission_name}")
+            return False
+        except Exception as e:
+            logger.error(f"授予权限失败: {e}")
+            return False
+    
+    def revoke_permission_by_name(self, permission_name: str) -> bool:
+        """撤销指定名称的权限
+        
+        Args:
+            permission_name: 权限名称
+        
+        Returns:
+            bool: 是否成功撤销
+        """
+        logger.info(f"撤销权限: {permission_name}")
+        try:
+            permission_item = self.page.locator(f"text={permission_name}").first
+            if permission_item.is_visible(timeout=3000):
+                parent = permission_item.locator("xpath=ancestor::div[contains(@class, 'flex')]").first
+                revoke_btn = parent.locator("button:has-text('Revoke')").first
+                if revoke_btn.is_visible(timeout=2000):
+                    revoke_btn.click()
+                    self.page.wait_for_timeout(500)
+                    logger.info(f"已撤销权限: {permission_name}")
+                    return True
+            logger.warning(f"未找到权限或Revoke按钮: {permission_name}")
+            return False
+        except Exception as e:
+            logger.error(f"撤销权限失败: {e}")
+            return False
+    
+    def click_permission_tab(self, tab_name: str):
+        """点击权限Tab
+        
+        Args:
+            tab_name: Tab名称，如 "AbpIdentity.Roles"
+        """
+        logger.info(f"点击权限Tab: {tab_name}")
+        try:
+            tab = self.page.get_by_role("tab", name=tab_name).first
+            tab.click()
+            self.page.wait_for_timeout(500)
+        except Exception as e:
+            logger.error(f"点击Tab失败: {e}")
+    
+    def get_permission_tabs(self) -> list:
+        """获取所有权限Tab名称列表"""
+        logger.info("获取所有权限Tab")
+        try:
+            tabs = self.page.locator("[role='tab']").all()
+            tab_names = []
+            for tab in tabs:
+                name = tab.text_content()
+                if name:
+                    tab_names.append(name.strip())
+            logger.info(f"找到 {len(tab_names)} 个权限Tab")
+            return tab_names
+        except Exception as e:
+            logger.error(f"获取权限Tab失败: {e}")
+            return []
+    
+    def get_granted_permissions_in_current_tab(self) -> list:
+        """获取当前Tab中已授予的权限名称列表"""
+        logger.info("获取当前Tab中已授予的权限")
+        try:
+            granted = []
+            # 查找所有Revoke按钮，其对应的权限是已授予的
+            revoke_buttons = self.page.locator("[role='tabpanel'] button:has-text('Revoke')").all()
+            for btn in revoke_buttons:
+                try:
+                    # 找到权限名称
+                    parent = btn.locator("xpath=ancestor::div[1]")
+                    name_elem = parent.locator("xpath=preceding-sibling::div//div[contains(@class, 'font')]").first
+                    name = name_elem.text_content()
+                    if name:
+                        granted.append(name.strip())
+                except:
+                    continue
+            logger.info(f"当前Tab已授予 {len(granted)} 个权限")
+            return granted
+        except Exception as e:
+            logger.error(f"获取已授予权限失败: {e}")
+            return []
+    
+    def is_unsaved_changes_visible(self) -> bool:
+        """检查是否显示未保存更改提示"""
+        return self.is_visible(self.PERMISSION_UNSAVED_CHANGES, timeout=2000)
+    
+    def is_save_changes_enabled(self) -> bool:
+        """检查Save Changes按钮是否可用"""
+        try:
+            save_btn = self.page.locator(self.PERMISSION_SAVE)
+            return save_btn.is_enabled(timeout=2000)
+        except:
+            return False
+    
+    def grant_first_available_permission(self) -> str:
+        """授予第一个可用的权限
+        
+        Returns:
+            str: 被授予的权限名称，如果没有可用权限返回空字符串
+        """
+        logger.info("授予第一个可用的权限")
+        try:
+            grant_btn = self.page.locator("[role='tabpanel'] button:has-text('Grant')").first
+            if grant_btn.is_visible(timeout=3000):
+                # 获取权限名称
+                parent = grant_btn.locator("xpath=ancestor::div[1]")
+                name_elem = parent.locator("xpath=preceding-sibling::div//div[1]").first
+                name = name_elem.text_content() if name_elem.is_visible() else ""
+                
+                grant_btn.click()
+                self.page.wait_for_timeout(500)
+                logger.info(f"已授予权限: {name}")
+                return name.strip() if name else "unknown"
+            logger.info("没有可用的Grant按钮")
+            return ""
+        except Exception as e:
+            logger.error(f"授予权限失败: {e}")
+            return ""
+    
+    def revoke_first_granted_permission(self) -> str:
+        """撤销第一个已授予的权限
+        
+        Returns:
+            str: 被撤销的权限名称
+        """
+        logger.info("撤销第一个已授予的权限")
+        try:
+            revoke_btn = self.page.locator("[role='tabpanel'] button:has-text('Revoke')").first
+            if revoke_btn.is_visible(timeout=3000):
+                parent = revoke_btn.locator("xpath=ancestor::div[1]")
+                name_elem = parent.locator("xpath=preceding-sibling::div//div[1]").first
+                name = name_elem.text_content() if name_elem.is_visible() else ""
+                
+                revoke_btn.click()
+                self.page.wait_for_timeout(500)
+                logger.info(f"已撤销权限: {name}")
+                return name.strip() if name else "unknown"
+            logger.info("没有可用的Revoke按钮")
+            return ""
+        except Exception as e:
+            logger.error(f"撤销权限失败: {e}")
+            return ""
     
     def is_confirm_dialog_open(self) -> bool:
         """检查确认对话框是否打开"""

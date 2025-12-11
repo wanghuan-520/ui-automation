@@ -2561,7 +2561,7 @@ class TestAdminUsersPermission:
         """
         TC-PERM-002: 编辑对话框中分配角色
         
-        验证在编辑对话框的Roles Tab中分配角色
+        验证在编辑对话框的Roles Tab中分配角色，并重新打开验证保存是否成功
         """
         logger.info("=" * 60)
         logger.info("TC-PERM-002: 编辑对话框中分配角色")
@@ -2600,8 +2600,8 @@ class TestAdminUsersPermission:
         users_page.clear_search()
         users_page.page.wait_for_timeout(500)
         
-        # 打开编辑对话框
-        logger.info(f"   打开编辑对话框")
+        # ===== Step 1: 打开编辑对话框并分配角色 =====
+        logger.info(f"   [Step 1] 打开编辑对话框并分配角色")
         users_page.click_edit_user(row_index)
         users_page.page.wait_for_timeout(1500)
         
@@ -2609,41 +2609,35 @@ class TestAdminUsersPermission:
             users_page.delete_user_by_username(test_username)
             assert False, "编辑对话框未打开"
         
-        # 截图：User Information Tab
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        users_page.take_screenshot(f"role_2_user_info_{ts}.png")
-        allure.attach.file(
-            f"screenshots/role_2_user_info_{ts}.png",
-            name="2-User Information Tab",
-            attachment_type=allure.attachment_type.PNG
-        )
-        
         # 切换到Roles Tab
         logger.info(f"   切换到Roles Tab")
         users_page.click_edit_tab_roles()
         users_page.page.wait_for_timeout(1000)
         
-        # 截图：Roles Tab
+        # 截图：Roles Tab（分配前）
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        users_page.take_screenshot(f"role_3_roles_tab_{ts}.png")
+        users_page.take_screenshot(f"role_2_roles_before_{ts}.png")
         allure.attach.file(
-            f"screenshots/role_3_roles_tab_{ts}.png",
-            name="3-Roles Tab: 查看可分配角色",
+            f"screenshots/role_2_roles_before_{ts}.png",
+            name="2-Roles Tab: 分配前",
             attachment_type=allure.attachment_type.PNG
         )
         
-        # 查找角色复选框
+        # 查找角色复选框并记录初始状态
         role_checkboxes = users_page.page.locator("[role='dialog'] input[type='checkbox'], [role='dialog'] [role='checkbox']").all()
         logger.info(f"   找到 {len(role_checkboxes)} 个角色复选框")
         
-        # 尝试勾选第一个未选中的角色
+        # 记录分配的角色索引
+        assigned_role_index = -1
         role_assigned = False
-        for checkbox in role_checkboxes:
+        
+        for i, checkbox in enumerate(role_checkboxes):
             try:
                 if not checkbox.is_checked():
                     checkbox.check()
                     role_assigned = True
-                    logger.info(f"   勾选了一个角色")
+                    assigned_role_index = i
+                    logger.info(f"   勾选了第{i+1}个角色")
                     break
             except:
                 continue
@@ -2651,10 +2645,10 @@ class TestAdminUsersPermission:
         if role_assigned:
             # 截图：勾选后
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            users_page.take_screenshot(f"role_4_checked_{ts}.png")
+            users_page.take_screenshot(f"role_3_checked_{ts}.png")
             allure.attach.file(
-                f"screenshots/role_4_checked_{ts}.png",
-                name="4-勾选角色后",
+                f"screenshots/role_3_checked_{ts}.png",
+                name=f"3-勾选第{assigned_role_index+1}个角色后",
                 attachment_type=allure.attachment_type.PNG
             )
             
@@ -2666,21 +2660,91 @@ class TestAdminUsersPermission:
             
             # 截图：保存后
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            users_page.take_screenshot(f"role_5_saved_{ts}.png")
+            users_page.take_screenshot(f"role_4_saved_{ts}.png")
             allure.attach.file(
-                f"screenshots/role_5_saved_{ts}.png",
-                name=f"5-保存后: 成功toast={success_toast}",
+                f"screenshots/role_4_saved_{ts}.png",
+                name=f"4-保存后: 成功toast={success_toast}",
                 attachment_type=allure.attachment_type.PNG
             )
             
             logger.info(f"   保存结果: 成功toast={success_toast}")
+            
+            # 关闭对话框
+            if users_page.is_dialog_open():
+                users_page.press_escape()
+                users_page.page.wait_for_timeout(500)
+            
+            # ===== Step 2: 重新打开对话框验证角色是否真正保存 =====
+            logger.info(f"   [Step 2] 重新打开对话框验证角色保存")
+            users_page.page.wait_for_timeout(1000)
+            
+            # 重新搜索用户
+            users_page.search_user(test_username)
+            users_page.page.wait_for_timeout(1000)
+            
+            row_index = users_page.find_user_by_username(test_username)
+            if row_index < 0:
+                users_page.clear_search()
+                users_page.delete_user_by_username(test_username)
+                assert False, f"重新搜索用户{test_username}失败"
+            
+            users_page.clear_search()
+            users_page.page.wait_for_timeout(500)
+            
+            # 重新打开编辑对话框
+            users_page.click_edit_user(row_index)
+            users_page.page.wait_for_timeout(1500)
+            
+            if not users_page.is_dialog_open():
+                users_page.delete_user_by_username(test_username)
+                assert False, "重新打开编辑对话框失败"
+            
+            # 切换到Roles Tab
+            users_page.click_edit_tab_roles()
+            users_page.page.wait_for_timeout(1000)
+            
+            # 截图：重新打开后的Roles Tab
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            users_page.take_screenshot(f"role_5_verify_{ts}.png")
+            allure.attach.file(
+                f"screenshots/role_5_verify_{ts}.png",
+                name="5-验证: 重新打开Roles Tab",
+                attachment_type=allure.attachment_type.PNG
+            )
+            
+            # 验证之前分配的角色是否仍然勾选
+            role_checkboxes_verify = users_page.page.locator("[role='dialog'] input[type='checkbox'], [role='dialog'] [role='checkbox']").all()
+            
+            role_still_checked = False
+            if assigned_role_index >= 0 and assigned_role_index < len(role_checkboxes_verify):
+                try:
+                    role_still_checked = role_checkboxes_verify[assigned_role_index].is_checked()
+                except:
+                    pass
+            
+            logger.info(f"   验证结果: 角色仍勾选={role_still_checked}")
+            
+            # 关闭对话框
+            if users_page.is_dialog_open():
+                users_page.press_escape()
+                users_page.page.wait_for_timeout(500)
+            
+            # 判断测试结果
+            if success_toast and not role_still_checked:
+                # BUG: 显示成功toast但角色未保存
+                logger.error(f"   ✗ BUG: 显示成功toast但角色未真正保存")
+                users_page.delete_user_by_username(test_username)
+                assert False, "BUG: 显示成功toast但角色分配未真正保存"
+            elif role_still_checked:
+                logger.info(f"   ✓ 角色分配保存成功")
+            else:
+                logger.warning(f"   ⚠ 角色分配可能未成功")
         else:
             logger.info("   所有角色已勾选或无可用角色")
-        
-        # 关闭对话框
-        if users_page.is_dialog_open():
-            users_page.press_escape()
-            users_page.page.wait_for_timeout(500)
+            # 关闭对话框
+            if users_page.is_dialog_open():
+                users_page.press_escape()
+                users_page.page.wait_for_timeout(500)
         
         # 清理
         users_page.delete_user_by_username(test_username)
@@ -2746,6 +2810,7 @@ class TestAdminUsersPermission:
         
         # 勾选所有角色
         role_checkboxes = users_page.page.locator("[role='dialog'] input[type='checkbox'], [role='dialog'] [role='checkbox']").all()
+        total_roles = len(role_checkboxes)
         checked_count = 0
         
         for checkbox in role_checkboxes:
@@ -2756,7 +2821,7 @@ class TestAdminUsersPermission:
             except:
                 continue
         
-        logger.info(f"   勾选了 {checked_count} 个角色")
+        logger.info(f"   勾选了 {checked_count} 个角色（共{total_roles}个）")
         
         # 截图：全部勾选后
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2786,6 +2851,56 @@ class TestAdminUsersPermission:
         if users_page.is_dialog_open():
             users_page.press_escape()
             users_page.page.wait_for_timeout(500)
+        
+        # ===== 重新打开对话框验证所有角色是否真正保存 =====
+        logger.info(f"   [验证] 重新打开对话框检查角色保存状态")
+        users_page.page.wait_for_timeout(1000)
+        
+        # 重新搜索用户
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        
+        row_index = users_page.find_user_by_username(test_username)
+        if row_index >= 0:
+            users_page.clear_search()
+            users_page.page.wait_for_timeout(500)
+            
+            # 重新打开编辑对话框
+            users_page.click_edit_user(row_index)
+            users_page.page.wait_for_timeout(1500)
+            
+            if users_page.is_dialog_open():
+                # 切换到Roles Tab
+                users_page.click_edit_tab_roles()
+                users_page.page.wait_for_timeout(1000)
+                
+                # 截图：验证Roles Tab
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                users_page.take_screenshot(f"all_roles_4_verify_{ts}.png")
+                
+                # 统计勾选的角色数量
+                role_checkboxes_verify = users_page.page.locator("[role='dialog'] input[type='checkbox'], [role='dialog'] [role='checkbox']").all()
+                verified_checked = sum(1 for cb in role_checkboxes_verify if cb.is_checked())
+                
+                allure.attach.file(
+                    f"screenshots/all_roles_4_verify_{ts}.png",
+                    name=f"4-验证: 已勾选{verified_checked}/{total_roles}个角色",
+                    attachment_type=allure.attachment_type.PNG
+                )
+                
+                logger.info(f"   验证结果: 已勾选{verified_checked}/{total_roles}个角色")
+                
+                # 关闭对话框
+                users_page.press_escape()
+                users_page.page.wait_for_timeout(500)
+                
+                # 判断测试结果
+                if success_toast and verified_checked < total_roles:
+                    logger.error(f"   ✗ BUG: 显示成功toast但角色未完全保存")
+                    users_page.delete_user_by_username(test_username)
+                    assert False, f"BUG: 显示成功toast但只保存了{verified_checked}/{total_roles}个角色"
+                elif verified_checked == total_roles:
+                    logger.info(f"   ✓ 所有角色分配保存成功")
         
         # 清理
         users_page.delete_user_by_username(test_username)
@@ -3039,3 +3154,638 @@ class TestAdminUsersPermission:
         users_page.delete_user_by_username(test_username)
         
         logger.info("✅ TC-PERM-005执行成功")
+    
+    # ==================== Action菜单Permission页面相关测试 ====================
+    
+    @pytest.mark.P1
+    @pytest.mark.functional
+    def test_p1_action_permission_page_elements(self, users_page):
+        """
+        TC-PERM-006: Action菜单Permission页面元素验证
+        
+        验证通过Action菜单打开的Permission页面包含所有必要元素
+        """
+        logger.info("=" * 60)
+        logger.info("TC-PERM-006: Action菜单Permission页面元素验证")
+        logger.info("=" * 60)
+        
+        timestamp = datetime.now().strftime("%H%M%S")
+        test_username = f"perm_elem_{timestamp}"
+        test_email = f"{test_username}@test.com"
+        
+        logger.info(f"   测试数据: UserName={test_username}")
+        
+        # 创建测试用户
+        users_page.create_user(username=test_username, password="Test@123456", email=test_email)
+        users_page.page.wait_for_timeout(2000)
+        
+        users_page.page.reload()
+        users_page.wait_for_load()
+        users_page.wait_for_table_load()
+        
+        # 搜索用户
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        
+        row_index = users_page.find_user_by_username(test_username)
+        assert row_index >= 0, f"用户{test_username}应存在"
+        
+        users_page.clear_search()
+        users_page.page.wait_for_timeout(500)
+        
+        # 截图：用户列表
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_elem_1_list_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_elem_1_list_{ts}.png",
+            name=f"1-用户列表: {test_username}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 打开Permission页面
+        logger.info(f"   通过Action菜单打开Permission页面")
+        users_page.click_user_permissions(row_index)
+        users_page.page.wait_for_timeout(3000)
+        
+        # 截图：Permission页面
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_elem_2_page_{ts}.png")
+        
+        # 验证页面元素
+        page_loaded = users_page.is_permission_page_loaded()
+        has_back_btn = users_page.is_visible("button:has-text('Back')", timeout=3000)
+        has_grant_all = users_page.is_visible("button:has-text('Grant All')", timeout=3000)
+        has_search = users_page.is_visible("input[placeholder*='Search']", timeout=3000)
+        has_tabs = users_page.is_visible("[role='tablist']", timeout=3000)
+        has_save_btn = users_page.is_visible("button:has-text('Save Changes')", timeout=3000)
+        has_cancel_btn = users_page.is_visible("button:has-text('Cancel')", timeout=3000)
+        
+        allure.attach.file(
+            f"screenshots/perm_elem_2_page_{ts}.png",
+            name=f"2-Permission页面: 加载={page_loaded}, Back={has_back_btn}, GrantAll={has_grant_all}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        logger.info(f"   页面元素验证:")
+        logger.info(f"      页面标题: {page_loaded}")
+        logger.info(f"      Back按钮: {has_back_btn}")
+        logger.info(f"      Grant All按钮: {has_grant_all}")
+        logger.info(f"      搜索框: {has_search}")
+        logger.info(f"      权限Tab列表: {has_tabs}")
+        logger.info(f"      Save Changes按钮: {has_save_btn}")
+        logger.info(f"      Cancel按钮: {has_cancel_btn}")
+        
+        # 获取权限摘要
+        summary = users_page.get_permission_summary()
+        logger.info(f"   权限摘要: Total={summary['total']}, Granted={summary['granted']}, NotGranted={summary['not_granted']}")
+        
+        # 返回用户列表
+        users_page.page.go_back()
+        users_page.page.wait_for_timeout(2000)
+        users_page.wait_for_table_load()
+        
+        # 清理
+        users_page.delete_user_by_username(test_username)
+        
+        # 断言所有元素存在
+        assert page_loaded, "Permission页面标题应显示"
+        assert has_back_btn, "Back按钮应存在"
+        assert has_grant_all, "Grant All按钮应存在"
+        assert has_tabs, "权限Tab列表应存在"
+        
+        logger.info("✅ TC-PERM-006执行成功")
+    
+    @pytest.mark.P1
+    @pytest.mark.functional
+    def test_p1_action_permission_grant_single(self, users_page):
+        """
+        TC-PERM-007: Action菜单Permission页面授予单个权限
+        
+        验证在Permission页面授予单个权限并保存，然后重新打开验证
+        """
+        logger.info("=" * 60)
+        logger.info("TC-PERM-007: Permission页面授予单个权限")
+        logger.info("=" * 60)
+        
+        timestamp = datetime.now().strftime("%H%M%S")
+        test_username = f"perm_single_{timestamp}"
+        test_email = f"{test_username}@test.com"
+        
+        logger.info(f"   测试数据: UserName={test_username}")
+        
+        # 创建测试用户
+        users_page.create_user(username=test_username, password="Test@123456", email=test_email)
+        users_page.page.wait_for_timeout(2000)
+        
+        users_page.page.reload()
+        users_page.wait_for_load()
+        users_page.wait_for_table_load()
+        
+        # 搜索并找到用户
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        row_index = users_page.find_user_by_username(test_username)
+        assert row_index >= 0, f"用户{test_username}应存在"
+        users_page.clear_search()
+        users_page.page.wait_for_timeout(500)
+        
+        # ===== Step 1: 打开Permission页面并授予权限 =====
+        logger.info(f"   [Step 1] 打开Permission页面并授予权限")
+        users_page.click_user_permissions(row_index)
+        users_page.page.wait_for_timeout(3000)
+        
+        # 获取初始权限摘要
+        initial_summary = users_page.get_permission_summary()
+        
+        # 截图：授予前
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_single_1_before_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_single_1_before_{ts}.png",
+            name=f"1-授予前: Granted={initial_summary['granted']}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 授予第一个可用权限
+        granted_permission = users_page.grant_first_available_permission()
+        logger.info(f"   授予权限: {granted_permission}")
+        
+        # 截图：授予后（未保存）
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_single_2_granted_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_single_2_granted_{ts}.png",
+            name=f"2-授予后(未保存): {granted_permission}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 检查未保存更改提示和Save按钮状态
+        has_unsaved = users_page.is_unsaved_changes_visible()
+        save_enabled = users_page.is_save_changes_enabled()
+        logger.info(f"   未保存提示: {has_unsaved}, Save按钮可用: {save_enabled}")
+        
+        # 保存权限
+        save_result = users_page.click_permission_save()
+        users_page.page.wait_for_timeout(2000)
+        
+        success_toast = users_page.is_success_message_visible()
+        
+        # 截图：保存后
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_single_3_saved_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_single_3_saved_{ts}.png",
+            name=f"3-保存后: 成功toast={success_toast}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        logger.info(f"   保存结果: {save_result}, 成功toast={success_toast}")
+        
+        # ===== Step 2: 返回并重新打开验证 =====
+        logger.info(f"   [Step 2] 返回并重新打开验证权限保存")
+        
+        # 点击Back返回
+        users_page.page.click("button:has-text('Back')")
+        users_page.page.wait_for_timeout(2000)
+        users_page.wait_for_table_load()
+        
+        # 重新搜索用户
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        row_index = users_page.find_user_by_username(test_username)
+        
+        if row_index >= 0:
+            users_page.clear_search()
+            users_page.page.wait_for_timeout(500)
+            
+            # 重新打开Permission页面
+            users_page.click_user_permissions(row_index)
+            users_page.page.wait_for_timeout(3000)
+            
+            # 获取验证后的权限摘要
+            verify_summary = users_page.get_permission_summary()
+            
+            # 截图：验证
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            users_page.take_screenshot(f"perm_single_4_verify_{ts}.png")
+            allure.attach.file(
+                f"screenshots/perm_single_4_verify_{ts}.png",
+                name=f"4-验证: Granted从{initial_summary['granted']}变为{verify_summary['granted']}",
+                attachment_type=allure.attachment_type.PNG
+            )
+            
+            logger.info(f"   验证结果: Granted从{initial_summary['granted']}变为{verify_summary['granted']}")
+            
+            # 返回用户列表
+            users_page.page.go_back()
+            users_page.page.wait_for_timeout(2000)
+            users_page.wait_for_table_load()
+            
+            # 判断结果
+            if success_toast and verify_summary['granted'] <= initial_summary['granted']:
+                logger.error(f"   ✗ BUG: 显示成功toast但权限未真正保存")
+                users_page.delete_user_by_username(test_username)
+                assert False, "BUG: 显示成功toast但权限未真正保存"
+            elif verify_summary['granted'] > initial_summary['granted']:
+                logger.info(f"   ✓ 权限授予保存成功")
+        
+        # 清理
+        users_page.delete_user_by_username(test_username)
+        
+        logger.info("✅ TC-PERM-007执行成功")
+    
+    @pytest.mark.P1
+    @pytest.mark.functional
+    def test_p1_action_permission_grant_all(self, users_page):
+        """
+        TC-PERM-008: Action菜单Permission页面授予所有权限
+        
+        验证使用Grant All按钮授予所有权限并保存
+        """
+        logger.info("=" * 60)
+        logger.info("TC-PERM-008: Permission页面授予所有权限")
+        logger.info("=" * 60)
+        
+        timestamp = datetime.now().strftime("%H%M%S")
+        test_username = f"perm_all_{timestamp}"
+        test_email = f"{test_username}@test.com"
+        
+        logger.info(f"   测试数据: UserName={test_username}")
+        
+        # 创建测试用户
+        users_page.create_user(username=test_username, password="Test@123456", email=test_email)
+        users_page.page.wait_for_timeout(2000)
+        
+        users_page.page.reload()
+        users_page.wait_for_load()
+        users_page.wait_for_table_load()
+        
+        # 搜索并找到用户
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        row_index = users_page.find_user_by_username(test_username)
+        assert row_index >= 0, f"用户{test_username}应存在"
+        users_page.clear_search()
+        users_page.page.wait_for_timeout(500)
+        
+        # 打开Permission页面
+        users_page.click_user_permissions(row_index)
+        users_page.page.wait_for_timeout(3000)
+        
+        # 获取初始权限摘要
+        initial_summary = users_page.get_permission_summary()
+        
+        # 截图：Grant All前
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_all_1_before_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_all_1_before_{ts}.png",
+            name=f"1-Grant All前: Granted={initial_summary['granted']}/{initial_summary['total']}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 点击Grant All
+        logger.info(f"   点击Grant All按钮")
+        users_page.click_grant_all_permissions()
+        users_page.page.wait_for_timeout(1000)
+        
+        # 截图：Grant All后（未保存）
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_all_2_granted_{ts}.png")
+        
+        after_grant_summary = users_page.get_permission_summary()
+        allure.attach.file(
+            f"screenshots/perm_all_2_granted_{ts}.png",
+            name=f"2-Grant All后(未保存): Granted={after_grant_summary['granted']}/{after_grant_summary['total']}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        logger.info(f"   Grant All后: Granted={after_grant_summary['granted']}/{after_grant_summary['total']}")
+        
+        # 保存
+        save_result = users_page.click_permission_save()
+        users_page.page.wait_for_timeout(2000)
+        
+        success_toast = users_page.is_success_message_visible()
+        
+        # 截图：保存后
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_all_3_saved_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_all_3_saved_{ts}.png",
+            name=f"3-保存后: 成功toast={success_toast}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        logger.info(f"   保存结果: 成功toast={success_toast}")
+        
+        # 返回并重新打开验证
+        users_page.page.click("button:has-text('Back')")
+        users_page.page.wait_for_timeout(2000)
+        users_page.wait_for_table_load()
+        
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        row_index = users_page.find_user_by_username(test_username)
+        
+        if row_index >= 0:
+            users_page.clear_search()
+            users_page.page.wait_for_timeout(500)
+            
+            users_page.click_user_permissions(row_index)
+            users_page.page.wait_for_timeout(3000)
+            
+            verify_summary = users_page.get_permission_summary()
+            
+            # 截图：验证
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            users_page.take_screenshot(f"perm_all_4_verify_{ts}.png")
+            allure.attach.file(
+                f"screenshots/perm_all_4_verify_{ts}.png",
+                name=f"4-验证: Granted={verify_summary['granted']}/{verify_summary['total']}",
+                attachment_type=allure.attachment_type.PNG
+            )
+            
+            logger.info(f"   验证结果: Granted={verify_summary['granted']}/{verify_summary['total']}")
+            
+            users_page.page.go_back()
+            users_page.page.wait_for_timeout(2000)
+            users_page.wait_for_table_load()
+            
+            # 判断结果
+            if success_toast and verify_summary['granted'] < verify_summary['total']:
+                logger.error(f"   ✗ BUG: 显示成功toast但未授予所有权限")
+                users_page.delete_user_by_username(test_username)
+                assert False, f"BUG: 显示成功toast但只授予了{verify_summary['granted']}/{verify_summary['total']}权限"
+            elif verify_summary['granted'] == verify_summary['total']:
+                logger.info(f"   ✓ Grant All保存成功")
+        
+        # 清理
+        users_page.delete_user_by_username(test_username)
+        
+        logger.info("✅ TC-PERM-008执行成功")
+    
+    @pytest.mark.P1
+    @pytest.mark.functional
+    def test_p1_action_permission_revoke(self, users_page):
+        """
+        TC-PERM-009: Action菜单Permission页面撤销权限
+        
+        验证先授予权限再撤销，并重新打开验证
+        """
+        logger.info("=" * 60)
+        logger.info("TC-PERM-009: Permission页面撤销权限")
+        logger.info("=" * 60)
+        
+        timestamp = datetime.now().strftime("%H%M%S")
+        test_username = f"perm_revoke_{timestamp}"
+        test_email = f"{test_username}@test.com"
+        
+        logger.info(f"   测试数据: UserName={test_username}")
+        
+        # 创建测试用户
+        users_page.create_user(username=test_username, password="Test@123456", email=test_email)
+        users_page.page.wait_for_timeout(2000)
+        
+        users_page.page.reload()
+        users_page.wait_for_load()
+        users_page.wait_for_table_load()
+        
+        # 搜索并找到用户
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        row_index = users_page.find_user_by_username(test_username)
+        assert row_index >= 0, f"用户{test_username}应存在"
+        users_page.clear_search()
+        users_page.page.wait_for_timeout(500)
+        
+        # ===== Step 1: 先授予一些权限 =====
+        logger.info(f"   [Step 1] 先授予权限")
+        users_page.click_user_permissions(row_index)
+        users_page.page.wait_for_timeout(3000)
+        
+        # 授予几个权限
+        for _ in range(3):
+            users_page.grant_first_available_permission()
+            users_page.page.wait_for_timeout(300)
+        
+        granted_summary = users_page.get_permission_summary()
+        
+        # 截图：授予后
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_revoke_1_granted_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_revoke_1_granted_{ts}.png",
+            name=f"1-授予后: Granted={granted_summary['granted']}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 保存授予的权限
+        users_page.click_permission_save()
+        users_page.page.wait_for_timeout(2000)
+        
+        logger.info(f"   已授予{granted_summary['granted']}个权限并保存")
+        
+        # 返回用户列表
+        users_page.page.click("button:has-text('Back')")
+        users_page.page.wait_for_timeout(2000)
+        users_page.wait_for_table_load()
+        
+        # ===== Step 2: 重新打开并撤销权限 =====
+        logger.info(f"   [Step 2] 重新打开并撤销权限")
+        
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        row_index = users_page.find_user_by_username(test_username)
+        users_page.clear_search()
+        users_page.page.wait_for_timeout(500)
+        
+        users_page.click_user_permissions(row_index)
+        users_page.page.wait_for_timeout(3000)
+        
+        before_revoke = users_page.get_permission_summary()
+        
+        # 截图：撤销前
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_revoke_2_before_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_revoke_2_before_{ts}.png",
+            name=f"2-撤销前: Granted={before_revoke['granted']}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 撤销第一个已授予的权限
+        revoked_permission = users_page.revoke_first_granted_permission()
+        logger.info(f"   撤销权限: {revoked_permission}")
+        
+        # 截图：撤销后（未保存）
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_revoke_3_revoked_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_revoke_3_revoked_{ts}.png",
+            name=f"3-撤销后(未保存): {revoked_permission}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 保存
+        users_page.click_permission_save()
+        users_page.page.wait_for_timeout(2000)
+        
+        success_toast = users_page.is_success_message_visible()
+        
+        # 截图：保存后
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_revoke_4_saved_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_revoke_4_saved_{ts}.png",
+            name=f"4-保存后: 成功toast={success_toast}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # ===== Step 3: 再次验证 =====
+        logger.info(f"   [Step 3] 再次打开验证撤销保存")
+        
+        users_page.page.click("button:has-text('Back')")
+        users_page.page.wait_for_timeout(2000)
+        users_page.wait_for_table_load()
+        
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        row_index = users_page.find_user_by_username(test_username)
+        
+        if row_index >= 0:
+            users_page.clear_search()
+            users_page.page.wait_for_timeout(500)
+            
+            users_page.click_user_permissions(row_index)
+            users_page.page.wait_for_timeout(3000)
+            
+            verify_summary = users_page.get_permission_summary()
+            
+            # 截图：验证
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            users_page.take_screenshot(f"perm_revoke_5_verify_{ts}.png")
+            allure.attach.file(
+                f"screenshots/perm_revoke_5_verify_{ts}.png",
+                name=f"5-验证: Granted从{before_revoke['granted']}变为{verify_summary['granted']}",
+                attachment_type=allure.attachment_type.PNG
+            )
+            
+            logger.info(f"   验证结果: Granted从{before_revoke['granted']}变为{verify_summary['granted']}")
+            
+            users_page.page.go_back()
+            users_page.page.wait_for_timeout(2000)
+            users_page.wait_for_table_load()
+            
+            # 判断结果
+            if success_toast and verify_summary['granted'] >= before_revoke['granted']:
+                logger.error(f"   ✗ BUG: 显示成功toast但权限未真正撤销")
+                users_page.delete_user_by_username(test_username)
+                assert False, "BUG: 显示成功toast但权限撤销未真正保存"
+            elif verify_summary['granted'] < before_revoke['granted']:
+                logger.info(f"   ✓ 权限撤销保存成功")
+        
+        # 清理
+        users_page.delete_user_by_username(test_username)
+        
+        logger.info("✅ TC-PERM-009执行成功")
+    
+    @pytest.mark.P2
+    @pytest.mark.functional
+    def test_p2_action_permission_cancel_unsaved(self, users_page):
+        """
+        TC-PERM-010: Permission页面取消未保存的更改
+        
+        验证取消未保存的权限更改
+        """
+        logger.info("=" * 60)
+        logger.info("TC-PERM-010: Permission页面取消未保存的更改")
+        logger.info("=" * 60)
+        
+        timestamp = datetime.now().strftime("%H%M%S")
+        test_username = f"perm_cancel_{timestamp}"
+        test_email = f"{test_username}@test.com"
+        
+        logger.info(f"   测试数据: UserName={test_username}")
+        
+        # 创建测试用户
+        users_page.create_user(username=test_username, password="Test@123456", email=test_email)
+        users_page.page.wait_for_timeout(2000)
+        
+        users_page.page.reload()
+        users_page.wait_for_load()
+        users_page.wait_for_table_load()
+        
+        # 搜索并找到用户
+        users_page.search_user(test_username)
+        users_page.page.wait_for_timeout(1000)
+        row_index = users_page.find_user_by_username(test_username)
+        assert row_index >= 0, f"用户{test_username}应存在"
+        users_page.clear_search()
+        users_page.page.wait_for_timeout(500)
+        
+        # 打开Permission页面
+        users_page.click_user_permissions(row_index)
+        users_page.page.wait_for_timeout(3000)
+        
+        # 获取初始权限摘要
+        initial_summary = users_page.get_permission_summary()
+        
+        # 截图：初始状态
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_cancel_1_initial_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_cancel_1_initial_{ts}.png",
+            name=f"1-初始: Granted={initial_summary['granted']}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 授予一个权限（但不保存）
+        granted_permission = users_page.grant_first_available_permission()
+        logger.info(f"   授予权限（不保存）: {granted_permission}")
+        
+        after_grant_summary = users_page.get_permission_summary()
+        
+        # 截图：授予后（未保存）
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_cancel_2_unsaved_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_cancel_2_unsaved_{ts}.png",
+            name=f"2-未保存: Granted={after_grant_summary['granted']}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        # 点击Cancel取消
+        logger.info(f"   点击Cancel取消")
+        users_page.click_permission_cancel()
+        users_page.page.wait_for_timeout(1000)
+        
+        # 检查Cancel后的状态
+        cancel_summary = users_page.get_permission_summary()
+        
+        # 截图：Cancel后
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        users_page.take_screenshot(f"perm_cancel_3_after_{ts}.png")
+        allure.attach.file(
+            f"screenshots/perm_cancel_3_after_{ts}.png",
+            name=f"3-Cancel后: Granted={cancel_summary['granted']}",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        logger.info(f"   Cancel后: Granted={cancel_summary['granted']} (初始={initial_summary['granted']})")
+        
+        # 返回用户列表
+        users_page.page.go_back()
+        users_page.page.wait_for_timeout(2000)
+        users_page.wait_for_table_load()
+        
+        # 清理
+        users_page.delete_user_by_username(test_username)
+        
+        # 验证Cancel是否恢复到初始状态
+        if cancel_summary['granted'] == initial_summary['granted']:
+            logger.info(f"   ✓ Cancel成功恢复到初始状态")
+        else:
+            logger.warning(f"   ⚠ Cancel后状态不一致")
+        
+        logger.info("✅ TC-PERM-010执行成功")
