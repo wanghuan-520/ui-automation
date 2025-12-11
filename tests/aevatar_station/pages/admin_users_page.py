@@ -380,14 +380,33 @@ class AdminUsersPage(BasePage):
         try:
             summary = {"total": 0, "granted": 0, "not_granted": 0}
             
-            # 查找包含数字的元素
-            summary_section = self.page.locator("text=Permission Summary").locator("..")
-            numbers = summary_section.locator("text=/^\\d+$/").all()
+            # 使用JavaScript直接获取数字（最可靠的方式）
+            result = self.page.evaluate("""
+                () => {
+                    const numbers = [];
+                    document.querySelectorAll('div').forEach(div => {
+                        const text = div.textContent?.trim();
+                        // 只匹配纯数字的div（不包含其他文本）
+                        if (text && /^\\d+$/.test(text)) {
+                            const nextSibling = div.nextElementSibling;
+                            const label = nextSibling ? nextSibling.textContent?.trim() : '';
+                            if (label === 'Total Permissions' || label === 'Granted' || label === 'Not Granted') {
+                                numbers.push({ value: parseInt(text), label: label });
+                            }
+                        }
+                    });
+                    return numbers;
+                }
+            """)
             
-            if len(numbers) >= 3:
-                summary["total"] = int(numbers[0].text_content())
-                summary["granted"] = int(numbers[1].text_content())
-                summary["not_granted"] = int(numbers[2].text_content())
+            # 解析结果
+            for item in result:
+                if item.get('label') == 'Total Permissions':
+                    summary["total"] = item.get('value', 0)
+                elif item.get('label') == 'Granted':
+                    summary["granted"] = item.get('value', 0)
+                elif item.get('label') == 'Not Granted':
+                    summary["not_granted"] = item.get('value', 0)
             
             logger.info(f"权限摘要: {summary}")
             return summary
