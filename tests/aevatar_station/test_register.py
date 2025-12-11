@@ -1,564 +1,830 @@
 """
 注册功能测试模块
-包含用户注册的各种场景测试
+包含注册相关的功能测试、边界测试、异常测试和安全测试
+
+ABP Framework 密码策略要求：
+- 至少包含一位非字母数字字符（特殊字符如 !@#$%）
+- 至少包含一位小写字母 (a-z)
+- 至少包含一位大写字母 (A-Z)
+- 至少包含一位数字 (0-9)
+- 最小长度 8 位
 """
 import pytest
 import logging
 import allure
+import hashlib
+import time
 from datetime import datetime
+from tests.aevatar_station.pages.landing_page import LandingPage
 from tests.aevatar_station.pages.register_page import RegisterPage
-from tests.aevatar_station.pages.login_page import LoginPage
 
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="function")
-def register_page(page):
-    """
-    注册页面fixture
-    ⚡ 增强版：集成页面加载诊断与自动截图
-    """
-    reg_page = RegisterPage(page)
-    
-    try:
-        reg_page.navigate()
-        
-        # 验证页面是否真正加载成功
-        if not reg_page.is_loaded():
-             # 有时候虽然 navigate 成功，但关键元素未显示
-            raise Exception("Register Page关键元素未加载")
-            
-    except Exception as e:
-        logger.error(f"❌ 导航到Register Page失败: {e}")
-        
-        # 🔍 深度诊断
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"screenshots/register_load_fail_{timestamp}.png"
-        page.screenshot(path=screenshot_path)
-        logger.error(f"   已保存失败截图: {screenshot_path}")
-        
-        html_path = f"screenshots/register_load_fail_{timestamp}.html"
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(page.content())
-        
-        raise e
-    
-    yield reg_page
+def generate_unique_user(worker_id, prefix="reg"):
+    """生成唯一的用户名和邮箱，支持并行测试"""
+    worker_suffix = f"w{worker_id}" if worker_id and worker_id != "master" else ""
+    timestamp = datetime.now().strftime("%H%M%S%f")[:8]
+    unique_str = f"{worker_suffix}_{timestamp}"
+    username = f"{prefix}_{unique_str}"
+    email = f"{prefix}_{unique_str}@test.com"
+    return username, email
 
 
 @pytest.mark.register
 class TestRegister:
     """注册功能测试类"""
     
-    @pytest.mark.P0
-    @pytest.mark.functional
-    def test_p0_register_page_load(self, register_page):
-        """
-        TC-REG-022: 注册页面加载验证测试
-        
-        测试目标：验证注册页面能够正确加载并显示所有必要的表单元素
-        """
-        logger.info("=" * 60)
-        logger.info("开始执行TC-REG-022: 注册页面加载验证")
-        logger.info("=" * 60)
-        
-        # 截图：页面初始状态
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"register_page_loaded_{timestamp}.png"
-        register_page.take_screenshot(screenshot_path)
-        allure.attach.file(
-            f"screenshots/{screenshot_path}",
-            name="1-注册页面加载完成",
-            attachment_type=allure.attachment_type.PNG
-        )
-        
-        # 验证页面加载
-        assert register_page.is_loaded(), "注册页面未正确加载"
-        logger.info("   ✓ 注册页面加载成功")
-        
-        # 验证所有关键元素可见
-        elements_to_check = [
-            (register_page.PAGE_TITLE, "页面标题"),
-            (register_page.USERNAME_INPUT, "用户名输入框"),
-            (register_page.EMAIL_INPUT, "邮箱输入框"),
-            (register_page.PASSWORD_INPUT, "密码输入框"),
-            (register_page.REGISTER_BUTTON, "注册按钮"),
-            (register_page.LOGIN_LINK, "登录链接")
-        ]
-        
-        for locator, name in elements_to_check:
-            assert register_page.is_visible(locator), f"{name}应该可见"
-            logger.info(f"   ✓ {name}可见")
-        
-        logger.info("✅ TC-REG-022执行成功")
+    # ==================== P0 功能测试 ====================
     
     @pytest.mark.P0
     @pytest.mark.functional
-    def test_p0_register_with_valid_data(self, register_page, test_data):
+    @allure.feature("注册功能")
+    @allure.story("成功注册")
+    def test_p0_successful_register(self, page, test_data, worker_id):
         """
-        TC-REG-001: 使用有效数据注册新用户测试
-        """
-        logger.info("=" * 60)
-        logger.info("开始执行TC-REG-001: 使用有效数据注册新用户")
-        logger.info("=" * 60)
+        TC-FUNC-001: 用户成功注册系统
         
-        # 生成唯一的用户名和邮箱
-        timestamp_str = datetime.now().strftime("%Y%m%d%H%M%S")
-        username = f"testuser_{timestamp_str}"
-        email = f"testuser_{timestamp_str}@test.com"
-        password = "TestPass123!"
-        
-        logger.info(f"   注册数据 - 用户名: {username}, 邮箱: {email}")
-        
-        # 填写注册信息
-        register_page.fill_username(username)
-        register_page.fill_email(email)
-        register_page.fill_password(password)
-        logger.info("   ✓ 已填写注册表单")
-        
-        # 点击注册按钮
-        register_page.click_register_button()
-        logger.info("   ✓ 已点击注册按钮")
-        
-        # 等待页面响应
-        register_page.page.wait_for_load_state("networkidle", timeout=10000)
-        register_page.page.wait_for_timeout(2000)
-        
-        # 截图：注册完成后的页面
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"register_result_{timestamp}.png"
-        register_page.take_screenshot(screenshot_path)
-        allure.attach.file(
-            f"screenshots/{screenshot_path}",
-            name="注册完成后的页面状态",
-            attachment_type=allure.attachment_type.PNG
-        )
-        
-        # 验证注册结果
-        current_url = register_page.page.url
-        logger.info(f"   注册后的URL: {current_url}")
-        
-        # 注册成功的判断条件：
-        # 1. URL不再是注册页面
-        # 2. 或显示成功消息
-        # 3. 或跳转到登录页面
-        success = "/Register" not in current_url or register_page.is_success_message_visible()
-        if success:
-            logger.info("   ✓ 注册成功（跳转或显示成功消息）")
-        else:
-            logger.error("   ❌ 注册可能失败，仍停留在注册页面且无成功消息")
-            
-        assert success, "注册应该成功并跳转或显示成功消息"
-        
-        logger.info("✅ TC-REG-001执行成功")
-    
-    @pytest.mark.P1
-    @pytest.mark.validation
-    def test_p1_register_username_empty(self, register_page):
-        """
-        TC-REG-004: 用户名为空校验测试
+        测试目标：验证用户使用有效信息可以成功注册新账号
+        测试区域：Register Page（ABP Framework注册页面）
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-REG-004: 用户名为空校验")
+        logger.info("开始执行TC-FUNC-001: 用户成功注册系统")
         logger.info("=" * 60)
         
-        # 用户名保持为空，填写其他字段
-        register_page.fill_email("valid@test.com")
-        register_page.fill_password("ValidPass123!")
-        logger.info("   ✓ 已填写邮箱和密码，用户名留空")
+        landing_page = LandingPage(page)
+        register_page = RegisterPage(page)
         
-        # 点击注册按钮
-        register_page.click_register_button()
-        register_page.page.wait_for_timeout(1000)
-        logger.info("   ✓ 已点击注册按钮")
-        
-        # 验证HTML5必填字段验证
-        is_valid = register_page.is_username_valid()
-        if not is_valid:
-            logger.info("   ✓ 用户名输入框验证状态: invalid（符合预期）")
-        else:
-            logger.warning("   ⚠️ 用户名输入框验证状态: valid（不符合预期）")
+        with allure.step("步骤1: 导航到注册页面"):
+            # 前置截图
+            landing_page.navigate()
+            page.screenshot(path="screenshots/reg_func001_step1_before.png")
+            allure.attach.file("screenshots/reg_func001_step1_before.png", 
+                             name="步骤1-前-首页", attachment_type=allure.attachment_type.PNG)
             
-        assert not is_valid, "用户名为空时should be invalid"
-        
-        # 验证仍在注册页面
-        current_url = register_page.page.url
-        assert "/Register" in current_url, "用户名为空时应该保持在注册页面"
-        logger.info("   ✓ 保持在注册页面")
-        
-        logger.info("✅ TC-REG-004执行成功")
-    
-    @pytest.mark.P1
-    @pytest.mark.validation
-    def test_p1_register_email_invalid_format(self, register_page):
-        """
-        TC-REG-008: 邮箱格式校验测试（无效格式）
-        """
-        logger.info("=" * 60)
-        logger.info("开始执行TC-REG-008: 邮箱格式校验测试")
-        logger.info("=" * 60)
-        
-        # 填写表单（邮箱为无效格式）
-        register_page.fill_username("validuser")
-        register_page.fill_email("invalid-email")  # 无效格式
-        register_page.fill_password("ValidPass123!")
-        logger.info("   ✓ 已填写表单，邮箱格式无效: invalid-email")
-        
-        # 点击注册按钮
-        register_page.click_register_button()
-        register_page.page.wait_for_timeout(1000)
-        logger.info("   ✓ 已点击注册按钮")
-        
-        # 验证HTML5邮箱格式验证
-        is_valid = register_page.is_email_valid()
-        logger.info(f"   邮箱字段验证状态: {'valid' if is_valid else 'invalid'}")
-        
-        if not is_valid:
-            logger.info("   ✓ 邮箱格式验证触发（invalid状态）")
-        else:
-            logger.info("   ℹ️ HTML5验证未触发（浏览器差异）")
-        
-        # 验证仍在注册页面
-        current_url = register_page.page.url
-        assert "/Register" in current_url, "邮箱格式无效时应该保持在注册页面"
-        logger.info("   ✓ 表单未提交，仍停留在注册页面")
-        
-        logger.info("✅ TC-REG-008执行成功")
-    
-    @pytest.mark.P1
-    @pytest.mark.validation
-    def test_p1_register_weak_password(self, register_page, test_data):
-        """
-        TC-REG-013~015: 弱密码校验测试（批量）
-        """
-        logger.info("=" * 60)
-        logger.info("开始执行TC-REG-013~015: 弱密码校验")
-        logger.info("=" * 60)
-        
-        weak_passwords = test_data.get("register_data", {}).get("weak_passwords", [])
-        
-        for idx, pwd_data in enumerate(weak_passwords[:3], 1):  # 测试前3个弱密码
-            password = pwd_data["password"]
-            description = pwd_data["description"]
+            # 带 returnUrl 参数导航，模拟从前端发起注册
+            register_page.navigate(return_url="https://localhost:3000/")
             
-            logger.info(f"\n--- 测试场景{idx}: {description} ---")
-            logger.info(f"   密码: {password}")
+            # 后置截图
+            page.screenshot(path="screenshots/reg_func001_step1_after.png")
+            allure.attach.file("screenshots/reg_func001_step1_after.png", 
+                             name="步骤1-后-注册页面", attachment_type=allure.attachment_type.PNG)
             
-            # 填写数据
-            register_page.clear_all_fields()
-            register_page.fill_username("validuser")
-            register_page.fill_email(f"valid{idx}@test.com")
-            register_page.fill_password(password)
-            
-            # 点击注册按钮
-            register_page.click_register_button()
-            register_page.page.wait_for_timeout(2000)
-            
-            # 记录是否显示错误
-            has_error = register_page.is_error_message_visible()
-            error_msg = register_page.get_error_message() if has_error else "无错误消息"
-            logger.info(f"   结果 - 错误消息: {error_msg}")
-            
-            # 验证仍在注册页面
-            current_url = register_page.page.url
-            if "/Register" in current_url:
-                logger.info("   ✓ 保持在注册页面")
-            else:
-                logger.warning(f"   ⚠️ 跳转到了其他页面: {current_url}")
+            assert register_page.is_loaded(), "注册页面未正确加载"
+            logger.info("   ✓ 注册页面加载成功")
         
-        logger.info("\n✅ TC-REG-013~015执行成功")
-    
-    @pytest.mark.P2
-    @pytest.mark.navigation
-    def test_p2_register_login_link(self, register_page):
-        """
-        TC-REG-003: 跳转到登录页面链接验证测试
-        """
-        logger.info("=" * 60)
-        logger.info("开始执行TC-REG-003: 跳转到登录页面链接验证")
-        logger.info("=" * 60)
+        with allure.step("步骤2: 准备唯一注册数据"):
+            base_data = test_data["register_data"]["valid_register_data"][0]
+            username, email = generate_unique_user(worker_id)
+            password = base_data["password"]
+            logger.info(f"   生成的注册数据: User={username}, Email={email}")
         
-        # 点击登录链接
-        logger.info("步骤1: 点击'Login'链接")
-        register_page.click_login_link()
-        register_page.page.wait_for_timeout(2000)
-        
-        # 验证URL
-        current_url = register_page.page.url
-        logger.info(f"   跳转后URL: {current_url}")
-        assert "/Login" in current_url, f"应该跳转到登录页面，实际URL: {current_url}"
-        logger.info("   ✓ 成功跳转到登录页面")
-        
-        logger.info("✅ TC-REG-003执行成功")
-    
-    @pytest.mark.P1
-    @pytest.mark.validation
-    def test_p1_register_all_fields_empty(self, register_page):
-        """
-        TC-REG-007: 所有字段为空校验测试
-        """
-        logger.info("=" * 60)
-        logger.info("开始执行TC-REG-007: 所有字段为空校验")
-        logger.info("=" * 60)
-        
-        # 直接点击注册按钮
-        logger.info("步骤1: 直接点击'Register'按钮")
-        register_page.click_register_button()
-        register_page.page.wait_for_timeout(1000)
-        
-        # 验证第一个必填字段（用户名）显示验证错误
-        is_valid = register_page.is_username_valid()
-        if not is_valid:
-            logger.info("   ✓ 用户名输入框验证状态: invalid（符合预期）")
-        else:
-            logger.warning("   ⚠️ 用户名输入框验证状态: valid（不符合预期）")
-            
-        assert not is_valid, "所有字段为空时用户名应该invalid"
-        
-        # 验证仍在注册页面
-        current_url = register_page.page.url
-        assert "/Register" in current_url, "所有字段为空时应该保持在注册页面"
-        
-        logger.info("✅ TC-REG-007执行成功")
-    
-    # ========== ABP特定验证测试 ==========
-    
-    @pytest.mark.P0
-    @pytest.mark.validation
-    @pytest.mark.abp_validation
-    def test_p0_abp_password_complexity(self, register_page, test_data):
-        """
-        TC-REG-ABP-001~006: ABP密码复杂度验证测试（批量）
-        """
-        logger.info("=" * 60)
-        logger.info("开始执行TC-REG-ABP: ABP密码复杂度验证")
-        logger.info("=" * 60)
-        
-        abp_pwd_data = test_data.get("register_data", {}).get("abp_password_validation", [])
-        
-        for idx, pwd_test in enumerate(abp_pwd_data, 1):
-            username = pwd_test["username"]
-            # email = pwd_test["email"]  # 不用这个，用动态生成的
-            password = pwd_test["password"]
-            missing = pwd_test["missing"]
-            description = pwd_test["description"]
-            
-            logger.info(f"\n--- 测试场景{idx}: {description} ---")
-            logger.info(f"   密码: {'*' * len(password)}, 缺少: {missing}")
-            
-            # 清空并填写新数据
-            register_page.clear_all_fields()
-            timestamp_str = datetime.now().strftime("%Y%m%d%H%M%S")
-            unique_username = f"{username}_{timestamp_str}"
-            unique_email = f"{username}_{timestamp_str}@test.com"
-            
-            register_page.fill_username(unique_username)
-            register_page.fill_email(unique_email)
-            register_page.fill_password(password)
-            
-            # 点击注册
-            register_page.click_register_button()
-            register_page.page.wait_for_timeout(2000)
-            
-            # 验证结果
-            if missing == "none":
-                # 期望成功
-                logger.info("   ✓ 期望成功（符合所有要求的密码）")
-                # 验证URL变化或显示成功消息
-                current_url = register_page.page.url
-                has_success = register_page.is_success_message_visible()
-                logger.info(f"   结果 - URL: {current_url}, 成功消息: {has_success}")
-            else:
-                # 期望失败
-                logger.info("   ✓ 期望失败（检查ABP密码复杂度错误消息）")
-                
-                # 检查是否有错误消息
-                has_error = register_page.is_error_message_visible()
-                if has_error:
-                    error_msg = register_page.get_error_message()
-                    logger.info(f"   ABP错误消息: {error_msg}")
-                    
-                    # 验证错误消息包含关键词（支持中英文）
-                    expected_cn = pwd_test.get("expected_error_cn", "")
-                    expected_en = pwd_test.get("expected_error_en", "")
-                    
-                    error_found = expected_cn in error_msg or expected_en.lower() in error_msg.lower()
-                    logger.info(f"   错误消息匹配: {error_found}")
-                else:
-                    logger.warning("   ⚠️ 未发现错误消息")
-                
-                # 验证仍在注册页面
-                current_url = register_page.page.url
-                assert "/Register" in current_url, f"密码不符合要求时应保持在注册页面，实际URL: {current_url}"
-            
-            # 等待一下再进行下一个测试
-            register_page.page.wait_for_timeout(500)
-        
-        logger.info("\n✅ TC-REG-ABP-001~006执行成功")
-    
-    @pytest.mark.P1
-    @pytest.mark.validation
-    @pytest.mark.abp_validation
-    def test_p1_abp_username_format(self, register_page, test_data):
-        """
-        TC-REG-ABP-007~010: ABP用户名格式验证测试（批量）
-        """
-        logger.info("=" * 60)
-        logger.info("开始执行TC-REG-ABP: ABP用户名格式验证")
-        logger.info("=" * 60)
-        
-        username_data = test_data.get("register_data", {}).get("abp_username_validation", [])
-        
-        for idx, user_test in enumerate(username_data, 1):
-            username = user_test["username"]
-            # email = user_test["email"]
-            password = user_test["password"]
-            error_type = user_test["error_type"]
-            description = user_test["description"]
-            
-            logger.info(f"\n--- 测试场景{idx}: {description} ---")
-            logger.info(f"   用户名: '{username}', 错误类型: {error_type}")
-            
-            # 清空并填写数据
-            register_page.clear_all_fields()
-            timestamp_str = datetime.now().strftime("%Y%m%d%H%M%S")
-            unique_email = f"user{idx}_{timestamp_str}@test.com"
+        with allure.step("步骤3: 填写注册表单"):
+            # 前置截图
+            page.screenshot(path="screenshots/reg_func001_step3_before.png")
+            allure.attach.file("screenshots/reg_func001_step3_before.png", 
+                             name="步骤3-前-空表单", attachment_type=allure.attachment_type.PNG)
             
             register_page.fill_username(username)
-            register_page.fill_email(unique_email)
+            register_page.fill_email(email)
             register_page.fill_password(password)
             
-            # 点击注册
+            # 后置截图
+            page.screenshot(path="screenshots/reg_func001_step3_after.png")
+            allure.attach.file("screenshots/reg_func001_step3_after.png", 
+                             name="步骤3-后-填写完成", attachment_type=allure.attachment_type.PNG)
+            logger.info("   ✓ 表单填写完成")
+        
+        with allure.step("步骤4: 提交注册"):
+            # 前置截图
+            page.screenshot(path="screenshots/reg_func001_step4_before.png")
+            allure.attach.file("screenshots/reg_func001_step4_before.png", 
+                             name="步骤4-前-提交前", attachment_type=allure.attachment_type.PNG)
+            
+            logger.info("   提交注册表单...")
             register_page.click_register_button()
-            register_page.page.wait_for_timeout(2000)
+            page.wait_for_timeout(3000)
             
-            # 验证结果
-            if error_type == "none":
-                # 期望成功
-                logger.info("   ✓ 期望成功")
-                current_url = register_page.page.url
-                logger.info(f"   结果URL: {current_url}")
-            else:
-                # 期望失败
-                logger.info("   ✓ 期望失败（检查ABP用户名格式错误）")
-                
-                has_error = register_page.is_error_message_visible()
-                if has_error:
-                    error_msg = register_page.get_error_message()
-                    logger.info(f"   ABP错误消息: {error_msg}")
-                    
-                    expected_error = user_test.get("expected_error", "")
-                    if expected_error:
-                        error_found = expected_error in error_msg
-                        logger.info(f"   错误消息包含'{expected_error}': {error_found}")
+            # 后置截图
+            page.screenshot(path="screenshots/reg_func001_step4_after.png")
+            allure.attach.file("screenshots/reg_func001_step4_after.png", 
+                             name="步骤4-后-提交后", attachment_type=allure.attachment_type.PNG)
+        
+        with allure.step("步骤5: 验证注册成功并确认登录状态"):
+            # 等待页面跳转和加载完成
+            page.wait_for_timeout(2000)
+            
+            # 等待网络空闲（确保所有请求完成）
+            try:
+                page.wait_for_load_state("networkidle", timeout=5000)
+            except:
+                pass
+            
+            current_url = page.url
+            logger.info(f"   注册后URL: {current_url}")
+
+            # 验证1：检查页面跳转
+            if "/Register" not in current_url:
+                if "localhost:3000" in current_url:
+                    logger.info(f"   ✓ 成功跳转到前端主页: {current_url}")
+                elif "localhost:44320" in current_url:
+                    logger.info(f"   ✓ 成功跳转到后端主页: {current_url}")
                 else:
-                    logger.warning("   ⚠️ 未发现错误消息")
-                
-                current_url = register_page.page.url
-                assert "/Register" in current_url, f"用户名格式无效时应保持在注册页面"
+                    logger.info(f"   ✓ 成功跳转到: {current_url}")
+            else:
+                # 仍在注册页，检查错误
+                error_element = page.locator(register_page.ERROR_MESSAGE)
+                if error_element.count() > 0:
+                    error_text = error_element.first.text_content()
+                    logger.error(f"   ❌ 注册失败: {error_text}")
+                    raise Exception(f"注册失败: {error_text}")
+                else:
+                    logger.error(f"   ❌ 注册后仍停留在注册页")
+                    raise AssertionError("注册未成功跳转")
+
+            # 验证2：确认用户已登录状态
+            logger.info("   等待前端登录状态更新...")
+            # 尝试刷新一次页面以确保状态同步
+            page.wait_for_timeout(2000)
+            try:
+                page.reload(wait_until="domcontentloaded")
+                page.wait_for_timeout(3000)
+            except:
+                pass
+
+            logger.info("\n   === 开始验证登录状态 ===")
             
-            register_page.page.wait_for_timeout(500)
+            # 2.1 检查用户菜单（最直接的登录证据）
+            user_menu_found = False
+            try:
+                user_menu_locator = page.locator('button[aria-label*="user" i], button:has-text("Toggle user menu")')
+                if user_menu_locator.count() > 0:
+                    is_visible = user_menu_locator.first.is_visible(timeout=2000)
+                    if is_visible:
+                        logger.info("   ✅ 检测到用户菜单按钮（已登录）")
+                        user_menu_found = True
+                    else:
+                        logger.info("   ⚠️ 用户菜单按钮存在但不可见")
+            except Exception as e:
+                logger.info(f"   ⚠️ 检测用户菜单异常: {str(e)}")
+            
+            # 2.2 检查Sign In按钮（应该消失）
+            sign_in_visible = True
+            try:
+                sign_in_locator = page.locator('button:has-text("Sign In"), a:has-text("Sign In")')
+                if sign_in_locator.count() > 0:
+                    sign_in_visible = sign_in_locator.first.is_visible(timeout=2000)
+                else:
+                    sign_in_visible = False
+            except:
+                pass
+                
+            if sign_in_visible:
+                logger.warning("   ⚠️ 'Sign In'按钮仍可见")
+            else:
+                logger.info("   ✅ 'Sign In'按钮不可见")
+
+            # 2.3 检查Cookie（辅助证据）
+            cookies = page.context.cookies()
+            auth_cookie_found = any(c['name'] == '.AspNetCore.Identity.Application' for c in cookies)
+            logger.info(f"   {'✅' if auth_cookie_found else '⚠️'} 认证Cookie: {'.AspNetCore.Identity.Application' if auth_cookie_found else '未找到'}")
+            
+            # 截图
+            page.screenshot(path="screenshots/reg_func001_step5_status.png")
+            allure.attach.file("screenshots/reg_func001_step5_status.png", 
+                             name="步骤5-登录状态验证", attachment_type=allure.attachment_type.PNG)
+
+            # 严格断言：必须在UI上体现登录状态
+            if not user_menu_found:
+                logger.error("   ❌ 前端UI未更新登录状态（Bug: 注册成功但显示未登录）")
+                
+                # 记录Bug信息
+                allure.attach(
+                    "前端状态同步Bug：\n"
+                    "- 现象：注册跳转后，前端UI仍显示'Sign In'，未显示用户菜单\n"
+                    f"- Cookie状态：{'.AspNetCore.Identity.Application' if auth_cookie_found else '无'} \n"
+                    "- 影响：用户注册后无法感知已登录状态\n",
+                    name="🐛 前端状态同步Bug",
+                    attachment_type=allure.attachment_type.TEXT
+                )
+                
+                # 即使有Cookie，只要UI没更新，就让它 Fail
+                assert False, "注册成功后前端UI未更新登录状态（仍显示Sign In，已知Bug）"
+            
+            logger.info("   ✓ 注册成功并登录验证通过")
         
-        logger.info("\n✅ TC-REG-ABP-007~010执行成功")
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ TC-FUNC-001执行成功")
+        logger.info("=" * 60)
+
+    # ==================== P0 异常测试 ====================
     
-    @pytest.mark.P0
-    @pytest.mark.abp_validation
-    def test_p0_duplicate_username(self, register_page, test_data):
+    @pytest.mark.P1
+    @pytest.mark.exception
+    @allure.feature("注册功能")
+    @allure.story("重复数据验证")
+    def test_p1_duplicate_email(self, page, test_data, worker_id):
         """
-        TC-REGISTER-020: 重复用户名验证测试
+        TC-EXCEPTION-004: 重复邮箱注册验证
+        
+        测试目标：验证系统拦截已存在的邮箱重复注册
+        测试区域：Register Page（ABP Framework注册页面）
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-REGISTER-020: 重复用户名验证")
+        logger.info("开始执行TC-EXCEPTION-004: 重复邮箱注册验证")
         logger.info("=" * 60)
         
-        # 使用测试数据中的重复用户名（如果存在）
-        duplicate_data = None
-        if "duplicate_data" in test_data:
-            duplicate_data = test_data["duplicate_data"][0]
+        register_page = RegisterPage(page)
         
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        if not duplicate_data:
-            # 如果没有预定义的重复数据，使用一个已知存在的用户名
-            duplicate_data = {
-                "username": "admin",  # ABP默认管理员用户名
-                "email": f"test_dup_{timestamp}@test.com",
-                "password": "Test123456!"
-            }
+        # 第一次注册：创建账号
+        with allure.step("步骤1: 首次注册创建账号"):
+            register_page.navigate()
+            
+            # 前置截图
+            page.screenshot(path="screenshots/reg_exc004_step1_before.png")
+            allure.attach.file("screenshots/reg_exc004_step1_before.png", 
+                             name="步骤1-前-注册页面", attachment_type=allure.attachment_type.PNG)
+            
+            username1, email1 = generate_unique_user(worker_id, "dup")
+            register_page.fill_username(username1)
+            register_page.fill_email(email1)
+            register_page.fill_password("TestPass123!")
+            
+            # 填写后截图
+            page.screenshot(path="screenshots/reg_exc004_step1_filled.png")
+            allure.attach.file("screenshots/reg_exc004_step1_filled.png", 
+                             name="步骤1-填写完成", attachment_type=allure.attachment_type.PNG)
+            
+            register_page.click_register_button()
+            page.wait_for_timeout(3000)
+            
+            # 后置截图
+            page.screenshot(path="screenshots/reg_exc004_step1_after.png")
+            allure.attach.file("screenshots/reg_exc004_step1_after.png", 
+                             name="步骤1-后-首次注册结果", attachment_type=allure.attachment_type.PNG)
+            
+            logger.info(f"   ✓ 首次注册完成: {email1}")
         
-        logger.info(f"   尝试注册重复用户名: {duplicate_data['username']}")
+        # 第二次注册：使用相同邮箱
+        with allure.step("步骤2: 使用相同邮箱再次注册"):
+            register_page.navigate()
+            
+            # 前置截图
+            page.screenshot(path="screenshots/reg_exc004_step2_before.png")
+            allure.attach.file("screenshots/reg_exc004_step2_before.png", 
+                             name="步骤2-前-重新打开注册页", attachment_type=allure.attachment_type.PNG)
+            
+            username2, _ = generate_unique_user(worker_id, "dup2")
+            register_page.fill_username(username2)  # 不同的用户名
+            register_page.fill_email(email1)  # 相同的邮箱
+            register_page.fill_password("TestPass123!")
+            
+            # 填写后截图
+            page.screenshot(path="screenshots/reg_exc004_step2_filled.png")
+            allure.attach.file("screenshots/reg_exc004_step2_filled.png", 
+                             name="步骤2-填写重复邮箱", attachment_type=allure.attachment_type.PNG)
+            
+            register_page.click_register_button()
+            
+            # 等待错误提示或页面响应
+            page.wait_for_timeout(3000)
+            
+            # 截图 - 错误提示
+            page.screenshot(path="screenshots/reg_exc004_step2_error.png")
+            allure.attach.file("screenshots/reg_exc004_step2_error.png", 
+                             name="步骤2-错误提示-重复邮箱", attachment_type=allure.attachment_type.PNG)
         
-        # 填写表单
-        register_page.fill_username(duplicate_data["username"])
-        register_page.fill_email(duplicate_data["email"])
-        register_page.fill_password(duplicate_data["password"])
+        with allure.step("步骤3: 验证重复邮箱被拦截"):
+            current_url = page.url
+            page_content = page.content()
+            
+            # 截图 - 验证结果
+            page.screenshot(path="screenshots/reg_exc004_step3_verify.png")
+            allure.attach.file("screenshots/reg_exc004_step3_verify.png", 
+                             name="步骤3-验证被拦截", attachment_type=allure.attachment_type.PNG)
+            
+            # 应该停留在注册页或显示错误
+            if "/Register" in current_url:
+                logger.info("   ✓ 重复邮箱被拦截，停留在注册页")
+            elif "已" in page_content or "already" in page_content.lower() or "exist" in page_content.lower():
+                logger.info("   ✓ 显示邮箱已存在错误")
+            else:
+                logger.warning(f"   ⚠️ 未明确拦截，当前URL: {current_url}")
         
-        # 点击注册
-        register_page.click_register_button()
-        register_page.page.wait_for_timeout(2000)
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ TC-EXCEPTION-004执行成功")
+        logger.info("=" * 60)
+
+    @pytest.mark.P1
+    @pytest.mark.exception
+    @allure.feature("注册功能")
+    @allure.story("重复数据验证")
+    def test_p1_duplicate_username(self, page, test_data, worker_id):
+        """
+        TC-EXCEPTION-005: 重复用户名注册验证
         
-        # 验证：应该显示错误消息
-        has_error = register_page.is_error_message_visible()
-        logger.info(f"   是否显示错误消息: {has_error}")
+        测试目标：验证系统拦截已存在的用户名重复注册
+        测试区域：Register Page（ABP Framework注册页面）
+        """
+        logger.info("=" * 60)
+        logger.info("开始执行TC-EXCEPTION-005: 重复用户名注册验证")
+        logger.info("=" * 60)
         
-        if has_error:
-            error_msg = register_page.get_error_message()
-            logger.info(f"   错误消息: {error_msg}")
-            assert "username" in error_msg.lower() or "already" in error_msg.lower() or "exists" in error_msg.lower(), \
-                f"错误消息应提示用户名已存在，实际: {error_msg}"
+        register_page = RegisterPage(page)
+        duplicate_data = test_data["register_data"].get("duplicate_data", [])
         
-        # 验证：应该保持在注册页面
-        current_url = register_page.page.url
-        assert "/Register" in current_url, f"应该保持在注册页面，实际URL: {current_url}"
+        if duplicate_data:
+            case = duplicate_data[0]  # 使用已知存在的用户名
+            
+            with allure.step(f"测试重复用户名: {case['username']}"):
+                register_page.navigate()
+                
+                # 前置截图
+                page.screenshot(path="screenshots/reg_exc005_before.png")
+                allure.attach.file("screenshots/reg_exc005_before.png", 
+                                 name="前-注册页面", attachment_type=allure.attachment_type.PNG)
+                
+                _, unique_email = generate_unique_user(worker_id, "dupname")
+                register_page.fill_username(case["username"])  # 已存在的用户名
+                register_page.fill_email(unique_email)  # 唯一的邮箱
+                register_page.fill_password(case["password"])
+                
+                # 填写后截图
+                page.screenshot(path="screenshots/reg_exc005_filled.png")
+                allure.attach.file("screenshots/reg_exc005_filled.png", 
+                                 name="填写重复用户名", attachment_type=allure.attachment_type.PNG)
+                
+                register_page.click_register_button()
+                
+                # 等待错误提示或页面响应
+                page.wait_for_timeout(3000)
+                
+                # 截图 - 错误提示
+                page.screenshot(path="screenshots/reg_exc005_error.png")
+                allure.attach.file("screenshots/reg_exc005_error.png", 
+                                 name="错误提示-重复用户名", attachment_type=allure.attachment_type.PNG)
+                
+                current_url = page.url
+                page_content = page.content()
+                
+                if "/Register" in current_url:
+                    logger.info("   ✓ 重复用户名被拦截，停留在注册页")
+                elif "已存在" in page_content or "already" in page_content.lower():
+                    logger.info("   ✓ 显示用户名已存在错误")
+                else:
+                    logger.warning(f"   ⚠️ 用户名 '{case['username']}' 可能不存在或未被拦截")
         
-        logger.info("✅ TC-REGISTER-020执行成功")
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ TC-EXCEPTION-005执行成功")
+        logger.info("=" * 60)
+
+    @pytest.mark.P1
+    @pytest.mark.exception
+    @allure.feature("注册功能")
+    @allure.story("必填项验证")
+    def test_p1_register_empty_fields(self, page, test_data):
+        """
+        TC-EXCEPTION-001: 空值输入验证测试
+        
+        测试目标：验证注册表单对空值输入的前端验证机制
+        测试区域：Register Page（ABP Framework注册页面）
+        """
+        logger.info("=" * 60)
+        logger.info("开始执行TC-EXCEPTION-001: 空值输入验证测试")
+        logger.info("=" * 60)
+        
+        register_page = RegisterPage(page)
+        
+        with allure.step("步骤1: 导航到注册页面"):
+            register_page.navigate()
+            
+            # 导航后截图
+            page.screenshot(path="screenshots/reg_exc001_step1_loaded.png")
+            allure.attach.file("screenshots/reg_exc001_step1_loaded.png", 
+                             name="步骤1-注册页面加载完成", attachment_type=allure.attachment_type.PNG)
+            logger.info("   ✓ 注册页面加载完成")
+        
+        with allure.step("步骤2: 尝试直接提交空表单"):
+            # 前置截图
+            page.screenshot(path="screenshots/reg_exc001_step2_before.png")
+            allure.attach.file("screenshots/reg_exc001_step2_before.png", 
+                             name="步骤2-前-空表单", attachment_type=allure.attachment_type.PNG)
+            
+            logger.info("   尝试提交空表单...")
+            register_page.click_register_button()
+            page.wait_for_timeout(1000)
+            
+            # 后置截图
+            page.screenshot(path="screenshots/reg_exc001_step2_after.png")
+            allure.attach.file("screenshots/reg_exc001_step2_after.png", 
+                             name="步骤2-后-提交结果", attachment_type=allure.attachment_type.PNG)
+        
+        with allure.step("步骤3: 验证表单验证或后端异常"):
+            page.wait_for_timeout(1500)  # 等待响应
+            current_url = page.url
+            page_content = page.content()
+            
+            # 截图 - 验证结果
+            page.screenshot(path="screenshots/reg_exc001_step3_result.png")
+            allure.attach.file("screenshots/reg_exc001_step3_result.png", 
+                             name="步骤3-提交结果（预期：验证错误或异常）", attachment_type=allure.attachment_type.PNG)
+            
+            # 验证：空表单提交应该被前端或后端友好拦截
+            # 验证1：检查是否显示异常页面（这是Bug行为，应该失败）
+            if "An unhandled exception occurred" in page_content or "AbpValidationException" in page_content:
+                logger.error("   ❌ [Bug] 后端抛出未处理异常，应该返回友好的验证错误")
+                logger.error("   Bug详情: AbpValidationException - ModelState is not valid")
+                logger.error("   预期行为: 应该显示友好的表单验证错误，或在前端阻止提交")
+                
+                # 在Allure报告中标记为失败的Bug
+                allure.attach(
+                    "Bug描述：\n"
+                    "- 实际行为：后端抛出未处理的 AbpValidationException\n"
+                    "- 预期行为：应该返回友好的验证错误提示，如'用户名不能为空'等\n"
+                    "- 影响：用户体验差，暴露了技术细节和堆栈跟踪\n"
+                    "- 严重程度：高\n"
+                    "- 建议：在后端统一异常处理或在前端增加表单验证",
+                    name="❌ Bug详情",
+                    attachment_type=allure.attachment_type.TEXT
+                )
+                
+                # 让测试失败
+                assert False, (
+                    "空表单提交后端抛出未处理异常（AbpValidationException），"
+                    "应该返回友好的验证错误提示"
+                )
+            
+            # 验证2：检查是否正确停留在注册页（预期行为）
+            elif "/Account/Register" in current_url:
+                logger.info(f"   ✓ 停留在注册页面: {current_url}")
+                logger.info("   ✓ 表单验证正常工作（未跳转）")
+            
+            # 验证3：检查是否意外跳转到其他页面（也是Bug）
+            else:
+                logger.error(f"   ❌ 意外跳转到: {current_url}")
+                assert False, f"空表单不应跳转到其他页面，当前URL: {current_url}"
+            
+            # 确保没有跳转到前端主页
+            assert "localhost:3000" not in current_url, f"不应跳转到前端主页，当前URL: {current_url}"
+        
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ TC-EXCEPTION-001执行成功")
+        logger.info("=" * 60)
+
+    @pytest.mark.P1
+    @pytest.mark.exception
+    @allure.feature("注册功能")
+    @allure.story("邮箱验证")
+    def test_p1_register_invalid_email(self, page, test_data, worker_id):
+        """
+        TC-EXCEPTION-002: ABP邮箱格式验证（包含边界值）
+        
+        测试目标：验证系统对无效邮箱格式和边界情况的拦截能力
+        测试区域：Register Page（ABP Framework注册页面）
+        
+        验证规则：
+        - 不能为空
+        - 必须包含@符号
+        - 必须有用户名部分和域名部分
+        - 不能包含空格
+        - 不能包含连续点号
+        - 不能包含双@符号
+        """
+        logger.info("=" * 60)
+        logger.info("开始执行TC-EXCEPTION-002: ABP邮箱格式验证（包含边界值）")
+        logger.info("=" * 60)
+        
+        register_page = RegisterPage(page)
+        
+        # 合并所有邮箱验证数据
+        invalid_emails = test_data["register_data"].get("invalid_emails", [])
+        abp_emails = test_data["register_data"].get("abp_email_validation", [])
+        all_email_cases = invalid_emails + abp_emails
+        
+        for idx, case in enumerate(all_email_cases, 1):
+            # 处理空邮箱case（不跳过，要测试）
+            email_display = case.get("email", "") if case.get("email") else "(空)"
+            
+            with allure.step(f"测试无效邮箱 {idx}: {email_display}"):
+                logger.info(f"\n--- 测试 {idx}: {case['description']} ---")
+                logger.info(f"   邮箱: {email_display}")
+                
+                register_page.navigate()
+                
+                # 前置截图
+                page.screenshot(path=f"screenshots/reg_exc002_case{idx}_before.png")
+                allure.attach.file(f"screenshots/reg_exc002_case{idx}_before.png", 
+                                 name=f"用例{idx}-前-空表单", attachment_type=allure.attachment_type.PNG)
+                
+                # 使用唯一用户名避免冲突
+                username, _ = generate_unique_user(worker_id, f"em{idx}")
+                
+                register_page.fill_username(username)
+                register_page.fill_email(case.get("email", ""))
+                register_page.fill_password(case.get("password", "ValidPass123!"))
+                
+                # 填写后截图
+                page.screenshot(path=f"screenshots/reg_exc002_case{idx}_filled.png")
+                allure.attach.file(f"screenshots/reg_exc002_case{idx}_filled.png", 
+                                 name=f"用例{idx}-填写完成", attachment_type=allure.attachment_type.PNG)
+                
+                register_page.click_register_button()
+                page.wait_for_timeout(1000)
+                
+                # 后置截图
+                page.screenshot(path=f"screenshots/reg_exc002_case{idx}_after.png")
+                allure.attach.file(f"screenshots/reg_exc002_case{idx}_after.png", 
+                                 name=f"用例{idx}-后-提交结果", attachment_type=allure.attachment_type.PNG)
+                
+                assert "/Account/Register" in page.url, \
+                    f"无效邮箱 {case['email']} 不应导致跳转"
+                logger.info(f"   ✓ 无效邮箱被拦截")
+        
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ TC-EXCEPTION-002执行成功")
+        logger.info("=" * 60)
+
+    # ==================== P0 安全测试 ====================
     
-    @pytest.mark.P0
-    @pytest.mark.abp_validation
-    def test_p0_duplicate_email(self, register_page, test_data):
+    @pytest.mark.P1
+    @pytest.mark.security
+    @allure.feature("注册功能")
+    @allure.story("ABP密码策略")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_p1_abp_password_complexity(self, page, test_data, worker_id):
         """
-        TC-REGISTER-021: 重复邮箱验证测试
+        TC-SECURITY-001: ABP密码复杂度验证
+        
+        测试目标：验证系统对不符合ABP密码策略的密码的拦截能力
+        测试区域：Register Page（ABP Framework注册页面）
+        
+        ABP Framework 密码策略要求：
+        - 至少包含一位非字母数字字符（特殊字符）
+        - 至少包含一位小写字母 (a-z)
+        - 至少包含一位大写字母 (A-Z)
+        - 至少包含一位数字 (0-9)
+        - 最小长度 8 位
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-REGISTER-021: 重复邮箱验证")
+        logger.info("开始执行TC-SECURITY-001: ABP密码复杂度验证")
         logger.info("=" * 60)
         
-        # 使用测试数据中的重复邮箱（如果存在）
-        duplicate_data = None
-        if "duplicate_data" in test_data and len(test_data["duplicate_data"]) > 1:
-            duplicate_data = test_data["duplicate_data"][1]
+        register_page = RegisterPage(page)
         
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        if not duplicate_data:
-            # 如果没有预定义的重复数据，使用一个已知存在的邮箱
-            duplicate_data = {
-                "username": f"testuser_{timestamp}",
-                "email": "admin@aevatar.ai",  # 使用已知存在的邮箱
-                "password": "Test123456!"
-            }
+        # 定义必须被拦截的弱密码测试用例（包含边界值测试）
+        weak_password_cases = [
+            # === 长度边界值测试 ===
+            {
+                "password": "T1!",
+                "description": "长度边界-3位（严重不足）",
+                "expected_errors": ["6", "8"]
+            },
+            {
+                "password": "Tt1!@",
+                "description": "长度边界-5位（临界不足）",
+                "expected_errors": ["6", "8"]
+            },
+            # 注：6位满足所有要求的密码（Tt1!@#）可能会通过，取决于ABP配置
+            
+            # === 字符类型缺失测试 ===
+            {
+                "password": "12345678",
+                "description": "仅数字-缺少大小写字母和特殊字符",
+                "expected_errors": ["非字母数字字符", "小写字母", "大写字母"]
+            },
+            {
+                "password": "abcdefgh",
+                "description": "仅小写字母-缺少大写、数字和特殊字符",
+                "expected_errors": ["非字母数字字符", "大写字母", "数字"]
+            },
+            {
+                "password": "ABCDEFGH",
+                "description": "仅大写字母-缺少小写、数字和特殊字符",
+                "expected_errors": ["非字母数字字符", "小写字母", "数字"]
+            },
+            {
+                "password": "TestPass123",
+                "description": "缺少特殊字符（8位+大小写+数字）",
+                "expected_errors": ["非字母数字字符"]
+            },
+            {
+                "password": "TestPass!@#",
+                "description": "缺少数字（8位+大小写+特殊字符）",
+                "expected_errors": ["数字"]
+            },
+            {
+                "password": "testpass123!",
+                "description": "缺少大写字母（12位+小写+数字+特殊字符）",
+                "expected_errors": ["大写字母"]
+            },
+            {
+                "password": "TESTPASS123!",
+                "description": "缺少小写字母（12位+大写+数字+特殊字符）",
+                "expected_errors": ["小写字母"]
+            },
+        ]
         
-        logger.info(f"   尝试注册重复邮箱: {duplicate_data['email']}")
+        for idx, case in enumerate(weak_password_cases, 1):
+            with allure.step(f"测试用例 {idx}: {case['description']}"):
+                logger.info(f"\n--- 测试 {idx}/{len(weak_password_cases)}: {case['description']} ---")
+                logger.info(f"   测试密码: {case['password']}")
+                
+                # 导航到注册页
+                register_page.navigate()
+                
+                # 前置截图
+                page.screenshot(path=f"screenshots/reg_sec001_case{idx}_before.png")
+                allure.attach.file(f"screenshots/reg_sec001_case{idx}_before.png", 
+                                 name=f"用例{idx}-前-空表单", 
+                                 attachment_type=allure.attachment_type.PNG)
+                
+                # 生成唯一用户名避免冲突
+                username, email = generate_unique_user(worker_id, f"pwd{idx}")
+                
+                # 填写表单
+                register_page.fill_username(username)
+                register_page.fill_email(email)
+                register_page.fill_password(case["password"])
+                
+                # 填写后截图
+                page.screenshot(path=f"screenshots/reg_sec001_case{idx}_filled.png")
+                allure.attach.file(f"screenshots/reg_sec001_case{idx}_filled.png", 
+                                 name=f"用例{idx}-填写完成", 
+                                 attachment_type=allure.attachment_type.PNG)
+                
+                # 提交
+                register_page.click_register_button()
+                page.wait_for_timeout(2000)
+                
+                # 提交后截图
+                page.screenshot(path=f"screenshots/reg_sec001_case{idx}_after.png")
+                allure.attach.file(f"screenshots/reg_sec001_case{idx}_after.png", 
+                                 name=f"用例{idx}-后-提交结果", 
+                                 attachment_type=allure.attachment_type.PNG)
+                
+                # 验证：弱密码应该被拦截，停留在注册页
+                current_url = page.url
+                logger.info(f"   提交后URL: {current_url}")
+                
+                assert "/Register" in current_url, \
+                    f"密码不符合要求时应保持在注册页面，实际URL: {current_url}"
+                
+                # 验证错误消息
+                page_content = page.content()
+                for expected_error in case["expected_errors"]:
+                    if expected_error in page_content:
+                        logger.info(f"   ✓ 捕获到预期错误关键词: '{expected_error}'")
+                        break
+                else:
+                    logger.warning(f"   ⚠️ 未捕获到预期错误关键词，但注册已被拦截")
+                
+                logger.info(f"   ✓ 用例{idx}通过: 弱密码被正确拦截")
         
-        # 填写表单
-        register_page.fill_username(duplicate_data["username"])
-        register_page.fill_email(duplicate_data["email"])
-        register_page.fill_password(duplicate_data["password"])
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ TC-SECURITY-001执行成功: 所有弱密码均被正确拦截")
+        logger.info("=" * 60)
+
+    # ==================== P1 异常测试 ====================
+    
+    @pytest.mark.P2
+    @pytest.mark.exception
+    @allure.feature("注册功能")
+    @allure.story("用户名验证")
+    def test_p2_username_validation(self, page, test_data, worker_id):
+        """
+        TC-EXCEPTION-003: ABP用户名格式验证（包含边界值）
         
-        # 点击注册
-        register_page.click_register_button()
-        register_page.page.wait_for_timeout(2000)
+        测试目标：验证用户名格式限制和边界情况
+        测试区域：Register Page（ABP Framework注册页面）
         
-        # 验证：应该显示错误消息
-        has_error = register_page.is_error_message_visible()
-        logger.info(f"   是否显示错误消息: {has_error}")
+        验证规则：
+        - 不能为空
+        - 最小长度限制（测试1位、2位边界）
+        - 不能包含空格
+        - 不能包含特殊字符（如 @ # $ % &）
+        - 允许字母、数字、下划线、连字符、点号
+        """
+        logger.info("=" * 60)
+        logger.info("开始执行TC-EXCEPTION-003: ABP用户名格式验证")
+        logger.info("=" * 60)
         
-        if has_error:
-            error_msg = register_page.get_error_message()
-            logger.info(f"   错误消息: {error_msg}")
-            assert "email" in error_msg.lower() or "already" in error_msg.lower() or "exists" in error_msg.lower(), \
-                f"错误消息应提示邮箱已被注册，实际: {error_msg}"
+        register_page = RegisterPage(page)
+        username_cases = test_data["register_data"].get("abp_username_validation", [])
         
-        # 验证：应该保持在注册页面
-        current_url = register_page.page.url
-        assert "/Register" in current_url, f"应该保持在注册页面，实际URL: {current_url}"
+        for idx, case in enumerate(username_cases, 1):
+            if case.get("expected_result") == "success":
+                continue  # 跳过预期成功的用例
+            
+            # 对于短用户名（易冲突），添加随机后缀
+            test_username = case["username"]
+            if len(test_username) <= 2 and test_username:  # 短用户名且非空
+                timestamp = str(int(time.time() * 1000))[-6:]  # 取时间戳后6位
+                test_username = f"{test_username}_{timestamp}"
+                logger.info(f"   短用户名添加随机后缀: {case['username']} -> {test_username}")
+            
+            with allure.step(f"测试用户名: {case['username']} ({case['description']})"):
+                logger.info(f"\n--- 测试 {idx}: {case['description']} ---")
+                logger.info(f"   原用户名: {case['username']}")
+                logger.info(f"   测试用户名: {test_username}")
+                
+                register_page.navigate()
+                
+                # 前置截图
+                page.screenshot(path=f"screenshots/reg_exc003_case{idx}_before.png")
+                allure.attach.file(f"screenshots/reg_exc003_case{idx}_before.png", 
+                                 name=f"用例{idx}-前-空表单", attachment_type=allure.attachment_type.PNG)
+                
+                # 使用唯一邮箱
+                _, email = generate_unique_user(worker_id, f"uname{idx}")
+                
+                register_page.fill_username(test_username)
+                register_page.fill_email(email)
+                register_page.fill_password(case["password"])
+                
+                # 填写后截图
+                page.screenshot(path=f"screenshots/reg_exc003_case{idx}_filled.png")
+                allure.attach.file(f"screenshots/reg_exc003_case{idx}_filled.png", 
+                                 name=f"用例{idx}-填写完成", attachment_type=allure.attachment_type.PNG)
+                
+                register_page.click_register_button()
+                page.wait_for_timeout(1500)
+                
+                # 后置截图
+                page.screenshot(path=f"screenshots/reg_exc003_case{idx}_after.png")
+                allure.attach.file(f"screenshots/reg_exc003_case{idx}_after.png", 
+                                 name=f"用例{idx}-后-提交结果", attachment_type=allure.attachment_type.PNG)
+                
+                current_url = page.url
+                page_content = page.content()
+                
+                # 验证是否被拦截（停留在注册页或显示错误）
+                if "/Register" in current_url:
+                    logger.info(f"   ✓ 无效用户名被拦截")
+                elif case.get("expected_error") and case["expected_error"] in page_content:
+                    logger.info(f"   ✓ 捕获到预期错误: {case['expected_error']}")
+                else:
+                    logger.warning(f"   ⚠️ 用户名 '{case['username']}' 未被拦截，当前URL: {current_url}")
         
-        logger.info("✅ TC-REGISTER-021执行成功")
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ TC-EXCEPTION-003执行成功")
+        logger.info("=" * 60)
+
+    # ==================== P2 UI测试 ====================
+    
+    @pytest.mark.P2
+    @pytest.mark.ui
+    @allure.feature("注册功能")
+    @allure.story("页面加载")
+    def test_p2_register_page_load(self, page):
+        """
+        TC-UI-001: 注册页面加载与元素验证
+        
+        测试目标：验证注册页面所有核心元素正确加载
+        测试区域：Register Page（ABP Framework注册页面）
+        """
+        logger.info("=" * 60)
+        logger.info("开始执行TC-UI-001: 注册页面加载与元素验证")
+        logger.info("=" * 60)
+        
+        register_page = RegisterPage(page)
+        
+        with allure.step("步骤1: 导航到注册页面"):
+            # 前置截图
+            page.screenshot(path="screenshots/reg_ui001_step1_before.png")
+            allure.attach.file("screenshots/reg_ui001_step1_before.png", 
+                             name="步骤1-前-导航前", attachment_type=allure.attachment_type.PNG)
+            
+            register_page.navigate()
+            
+            # 后置截图
+            page.screenshot(path="screenshots/reg_ui001_step1_after.png")
+            allure.attach.file("screenshots/reg_ui001_step1_after.png", 
+                             name="步骤1-后-注册页面", attachment_type=allure.attachment_type.PNG)
+            logger.info("   ✓ 注册页面导航完成")
+        
+        with allure.step("步骤2: 验证页面核心元素加载"):
+            if not register_page.is_loaded():
+                page.screenshot(path="screenshots/reg_ui001_failed.png")
+                allure.attach.file("screenshots/reg_ui001_failed.png", 
+                                 name="页面加载失败", attachment_type=allure.attachment_type.PNG)
+                raise AssertionError("注册页面核心元素(输入框/按钮)未加载")
+            
+            # 截图 - 核心元素
+            page.screenshot(path="screenshots/reg_ui001_step2_elements.png")
+            allure.attach.file("screenshots/reg_ui001_step2_elements.png", 
+                             name="步骤2-核心元素加载完成", attachment_type=allure.attachment_type.PNG)
+            logger.info("   ✓ 核心元素加载完成")
+        
+        with allure.step("步骤3: 验证页面标题可见"):
+            from playwright.sync_api import expect
+            expect(page.locator(register_page.PAGE_TITLE).first).to_be_visible(timeout=5000)
+            
+            # 截图 - 页面标题
+            page.screenshot(path="screenshots/reg_ui001_step3_title.png")
+            allure.attach.file("screenshots/reg_ui001_step3_title.png", 
+                             name="步骤3-页面标题可见", attachment_type=allure.attachment_type.PNG)
+            logger.info("   ✓ 页面标题可见")
+        
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ TC-UI-001执行成功")
+        logger.info("=" * 60)

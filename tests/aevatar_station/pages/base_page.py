@@ -13,8 +13,9 @@ class BasePage:
     
     def __init__(self, page: Page):
         self.page = page
-        self.base_url = "https://localhost:3000"
-        self.auth_url = "https://localhost:44320"
+        # 使用http而不是https，避免SSL证书问题
+        self.base_url = "http://localhost:3000"
+        self.auth_url = "http://localhost:3000"
     
     def navigate_to(self, path=""):
         """导航到指定路径"""
@@ -72,27 +73,38 @@ class BasePage:
         self.page.click(selector, timeout=timeout)
 
     def fill_input(self, selector, value, timeout=30000):
-        """填写输入框 - 简化版：直接填写，减少等待"""
+        """填写输入框 - 终极方案：JS直接赋值"""
         logger.info(f"填写输入框 {selector}: {value}")
         try:
-            # 简化策略：只等待元素可见，然后直接填写
+            # 简化策略：只等待元素可见
             self.page.wait_for_selector(selector, state="visible", timeout=timeout)
             logger.debug(f"✅ 元素已可见: {selector}")
             
-            # 直接填写，使用更短的超时
-            self.page.fill(selector, value, timeout=10000)
-            logger.info(f"✅ 填写成功: {selector}")
-        except Exception as e:
-            # 如果填写失败，尝试备选方案：先点击再输入
-            logger.warning(f"⚠️ 常规填写失败，尝试备选方案...")
+            # 尝试标准fill
             try:
-                self.page.click(selector, timeout=5000)
-                self.page.locator(selector).fill(value)
-                logger.info(f"✅ 备选方案填写成功: {selector}")
-            except Exception as e2:
-                logger.error(f"❌ 所有填写方案都失败: {selector}")
-                logger.error(f"   错误: {str(e2)}")
-                raise e2
+                self.page.fill(selector, value, timeout=2000)
+                logger.info(f"✅ 标准填写成功: {selector}")
+                return
+            except:
+                logger.warning(f"⚠️ 标准填写超时，切换到JS强制赋值...")
+            
+            # JS强制赋值
+            self.page.evaluate(f"""
+                (data) => {{
+                    const el = document.querySelector(data.selector);
+                    if (el) {{
+                        el.value = data.value;
+                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        el.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+                    }}
+                }}
+            """, {"selector": selector, "value": value})
+            logger.info(f"✅ JS强制赋值成功: {selector}")
+            
+        except Exception as e:
+            logger.error(f"❌ 填写失败: {selector}, 错误: {e}")
+            raise e
 
     def get_text(self, selector, timeout=30000):
         """获取元素文本"""

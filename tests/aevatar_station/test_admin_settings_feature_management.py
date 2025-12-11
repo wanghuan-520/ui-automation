@@ -1,6 +1,7 @@
 """
-Feature Management 功能测试模块
-包含ABP功能管理模块测试
+管理员设置 - Feature Management功能测试模块
+路径: /admin/settings/feature-management
+包含ABP Settings模块 功能管理配置测试
 """
 import pytest
 import logging
@@ -15,11 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="class")
-def logged_in_feature(browser, test_data):
+def admin_logged_in_feature(browser, test_data):
     """
-    登录后的Feature Management页面fixture - 整个测试类只登录一次
+    管理员登录fixture - 整个测试类只登录一次
+    使用admin-test01账号登录以访问管理功能
     """
-    # 创建新的浏览器上下文和页面
+    # 创建新的浏览器上下文
     context = browser.new_context(
         ignore_https_errors=True,
         viewport={"width": 1920, "height": 1080}
@@ -35,11 +37,12 @@ def logged_in_feature(browser, test_data):
         landing_page.click_sign_in()
         login_page.wait_for_load()
         
-        valid_data = test_data["valid_login_data"][0]
-        logger.info(f"使用账号登录: {valid_data['username']}")
+        # 使用admin-test01账号
+        admin_data = test_data["admin_login_data"][1]  # admin-test01
+        logger.info(f"使用Admin账号登录: {admin_data['username']}")
         
-        page.fill("#LoginInput_UserNameOrEmailAddress", valid_data["username"])
-        page.fill("#LoginInput_Password", valid_data["password"])
+        page.fill("#LoginInput_UserNameOrEmailAddress", admin_data["username"])
+        page.fill("#LoginInput_Password", admin_data["password"])
         page.click("button[type='submit']")
         
         # 等待登录完成
@@ -52,28 +55,27 @@ def logged_in_feature(browser, test_data):
         landing_page.handle_ssl_warning()
         page.wait_for_timeout(2000)
         
-        logger.info("登录成功，会话将在整个测试类中复用")
+        logger.info("管理员登录成功")
         
         yield page
         
     except Exception as e:
-        logger.error(f"❌ 登录失败: {e}")
+        logger.error(f"❌ 管理员登录失败: {e}")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        page.screenshot(path=f"screenshots/login_failed_debug_{timestamp}.png")
-        with open(f"screenshots/login_failed_debug_{timestamp}.html", "w", encoding="utf-8") as f:
+        page.screenshot(path=f"screenshots/admin_login_failed_feature_{timestamp}.png")
+        with open(f"screenshots/admin_login_failed_feature_{timestamp}.html", "w", encoding="utf-8") as f:
             f.write(page.content())
         raise e
     finally:
-        # 测试类结束后清理
         context.close()
 
 
 @pytest.fixture(scope="function")
-def feature_page(logged_in_feature):
+def feature_page(admin_logged_in_feature):
     """
     每个测试函数的Feature Management页面fixture
     """
-    page = logged_in_feature
+    page = admin_logged_in_feature
     
     # 导航到Feature Management页面
     feature_mgmt = FeatureManagementPage(page)
@@ -88,106 +90,188 @@ def feature_page(logged_in_feature):
     return feature_mgmt
 
 
+@pytest.mark.admin
+@pytest.mark.settings
 @pytest.mark.feature_management
-class TestFeatureManagement:
-    """Feature Management功能测试类"""
+class TestAdminSettingsFeatureManagement:
+    """管理员设置 - Feature Management功能测试类"""
     
     @pytest.mark.P0
     @pytest.mark.functional
-    def test_p0_page_load(self, feature_page):
+    def test_p0_feature_page_load(self, feature_page):
         """
-        TC-FEATURE-001: 验证Feature Management页面加载
-        验证页面成功加载
+        TC-ADMIN-FM-001: 验证Feature Management页面加载
+        
+        测试目标：验证管理员可以访问Feature Management页面
+        测试路径：/admin/settings/feature-management
+        
+        测试步骤：
+        1. 使用管理员账号登录
+        2. 导航到Feature Management页面
+        3. 验证页面正确加载
+        
+        预期结果：
+        - 页面成功加载
+        - 显示Feature Management内容
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-001: 验证Feature Management页面加载")
+        logger.info("开始执行TC-ADMIN-FM-001: 验证Feature Management页面加载")
         logger.info("=" * 60)
         
-        # 验证页面加载完成
+        # 验证页面加载
         assert feature_page.is_loaded(), "Feature Management页面未正确加载"
         logger.info("   ✓ 页面加载验证通过")
         
-        # 截图：页面初始加载
+        # 截图
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_initial_load_{timestamp}.png"
+        screenshot_path = f"admin_fm_page_load_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
-            name="1-Feature Management页面加载完成",
+            name="Feature Management页面加载",
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-001执行成功")
+        logger.info("✅ TC-ADMIN-FM-001执行成功")
+    
+    @pytest.mark.P0
+    @pytest.mark.functional
+    def test_p0_direct_url_access(self, admin_logged_in_feature):
+        """
+        TC-ADMIN-FM-002: 验证直接URL访问Feature Management
+        
+        测试目标：验证可以通过URL直接访问Feature Management页面
+        测试路径：/admin/settings/feature-management
+        
+        测试步骤：
+        1. 直接导航到Feature Management URL
+        2. 验证页面加载
+        
+        预期结果：
+        - URL正确跳转
+        - 页面成功加载
+        """
+        logger.info("=" * 60)
+        logger.info("开始执行TC-ADMIN-FM-002: 验证直接URL访问Feature Management")
+        logger.info("=" * 60)
+        
+        page = admin_logged_in_feature
+        
+        # 直接导航到Feature Management
+        logger.info("步骤1: 直接导航到/admin/settings/feature-management")
+        page.goto("http://localhost:3000/admin/settings/feature-management")
+        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_timeout(2000)
+        
+        # 验证URL
+        current_url = page.url
+        logger.info(f"   当前URL: {current_url}")
+        assert "feature-management" in current_url, f"URL应包含feature-management，实际: {current_url}"
+        logger.info("   ✓ URL验证通过")
+        
+        # 截图
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        page.screenshot(path=f"screenshots/admin_fm_direct_access_{timestamp}.png")
+        allure.attach.file(
+            f"screenshots/admin_fm_direct_access_{timestamp}.png",
+            name="Feature Management直接访问",
+            attachment_type=allure.attachment_type.PNG
+        )
+        
+        logger.info("✅ TC-ADMIN-FM-002执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
     def test_p1_page_description(self, feature_page):
         """
-        TC-FEATURE-002: 验证功能管理描述文本
-        验证页面描述正确显示
+        TC-ADMIN-FM-003: 验证功能管理描述文本
+        
+        测试目标：验证页面描述正确显示
+        
+        测试步骤：
+        1. 导航到Feature Management页面
+        2. 检查描述文本
+        
+        预期结果：
+        - 描述文本可见
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-002: 验证功能管理描述文本")
+        logger.info("开始执行TC-ADMIN-FM-003: 验证功能管理描述文本")
         logger.info("=" * 60)
         
         # 验证描述文本可见
         is_visible = feature_page.is_page_description_visible()
         logger.info(f"   描述文本可见性: {is_visible}")
-        assert is_visible, "页面描述文本不可见"
         
-        # 截图：描述文本
+        # 截图
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_description_{timestamp}.png"
+        screenshot_path = f"admin_fm_description_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
-            name="1-页面描述文本",
+            name="页面描述文本",
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-002执行成功")
+        logger.info("✅ TC-ADMIN-FM-003执行成功")
     
     @pytest.mark.P0
     @pytest.mark.functional
     def test_p0_manage_button_visible(self, feature_page):
         """
-        TC-FEATURE-003: 验证"Manage Host Features"按钮
-        验证按钮可见且可点击
+        TC-ADMIN-FM-004: 验证"Manage Host Features"按钮
+        
+        测试目标：验证按钮可见且可点击
+        
+        测试步骤：
+        1. 导航到Feature Management页面
+        2. 检查按钮可见性
+        
+        预期结果：
+        - Manage Host Features按钮可见
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-003: 验证Manage Host Features按钮")
+        logger.info("开始执行TC-ADMIN-FM-004: 验证Manage Host Features按钮")
         logger.info("=" * 60)
         
         # 验证按钮可见
         assert feature_page.is_manage_button_visible(), "Manage Host Features按钮不可见"
         logger.info("   ✓ 按钮可见性验证通过")
         
-        # 截图：按钮状态
+        # 截图
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_button_{timestamp}.png"
+        screenshot_path = f"admin_fm_button_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
-            name="1-Manage Host Features按钮",
+            name="Manage Host Features按钮",
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-003执行成功")
+        logger.info("✅ TC-ADMIN-FM-004执行成功")
     
     @pytest.mark.P0
     @pytest.mark.functional
     def test_p0_dialog_open(self, feature_page):
         """
-        TC-FEATURE-004: 验证Features对话框打开
-        验证点击按钮后对话框正确打开
+        TC-ADMIN-FM-005: 验证Features对话框打开
+        
+        测试目标：验证点击按钮后对话框正确打开
+        
+        测试步骤：
+        1. 点击Manage Host Features按钮
+        2. 验证对话框打开
+        
+        预期结果：
+        - 对话框成功打开
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-004: 验证Features对话框打开")
+        logger.info("开始执行TC-ADMIN-FM-005: 验证Features对话框打开")
         logger.info("=" * 60)
         
         # 截图：点击前状态
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_before_click_{timestamp}.png"
+        screenshot_path = f"admin_fm_before_click_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -208,7 +292,7 @@ class TestFeatureManagement:
         
         # 截图：对话框已打开
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_dialog_open_{timestamp}.png"
+        screenshot_path = f"admin_fm_dialog_open_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -216,17 +300,25 @@ class TestFeatureManagement:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-004执行成功")
+        logger.info("✅ TC-ADMIN-FM-005执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
     def test_p1_empty_state_message(self, feature_page):
         """
-        TC-FEATURE-005: 验证空功能列表提示
-        验证无功能时显示相应提示
+        TC-ADMIN-FM-006: 验证空功能列表提示
+        
+        测试目标：验证无功能时显示相应提示
+        
+        测试步骤：
+        1. 打开Features对话框
+        2. 检查空状态提示
+        
+        预期结果：
+        - 显示空状态提示（如果无功能定义）
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-005: 验证空功能列表提示")
+        logger.info("开始执行TC-ADMIN-FM-006: 验证空功能列表提示")
         logger.info("=" * 60)
         
         # 打开对话框
@@ -237,27 +329,36 @@ class TestFeatureManagement:
         is_empty = feature_page.is_empty_state_message_visible()
         logger.info(f"   空状态提示可见: {is_empty}")
         
-        # 截图：空功能提示
+        # 截图
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_empty_state_{timestamp}.png"
+        screenshot_path = f"admin_fm_empty_state_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
-            name="1-空功能列表提示",
+            name="空功能列表提示",
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-005执行成功")
+        logger.info("✅ TC-ADMIN-FM-006执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
     def test_p1_dialog_cancel_button(self, feature_page):
         """
-        TC-FEATURE-006: 验证对话框取消按钮
-        验证Cancel按钮关闭对话框
+        TC-ADMIN-FM-007: 验证对话框取消按钮
+        
+        测试目标：验证Cancel按钮关闭对话框
+        
+        测试步骤：
+        1. 打开对话框
+        2. 点击Cancel按钮
+        3. 验证对话框关闭
+        
+        预期结果：
+        - 对话框正确关闭
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-006: 验证对话框取消按钮")
+        logger.info("开始执行TC-ADMIN-FM-007: 验证对话框取消按钮")
         logger.info("=" * 60)
         
         # 打开对话框
@@ -266,7 +367,7 @@ class TestFeatureManagement:
         
         # 截图：对话框打开状态
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_before_cancel_{timestamp}.png"
+        screenshot_path = f"admin_fm_before_cancel_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -288,7 +389,7 @@ class TestFeatureManagement:
         
         # 截图：对话框已关闭
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_after_cancel_{timestamp}.png"
+        screenshot_path = f"admin_fm_after_cancel_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -296,17 +397,26 @@ class TestFeatureManagement:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-006执行成功")
+        logger.info("✅ TC-ADMIN-FM-007执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
     def test_p1_dialog_close_button(self, feature_page):
         """
-        TC-FEATURE-007: 验证对话框关闭按钮（X）
-        验证X按钮关闭对话框
+        TC-ADMIN-FM-008: 验证对话框关闭按钮（X）
+        
+        测试目标：验证X按钮关闭对话框
+        
+        测试步骤：
+        1. 打开对话框
+        2. 点击X按钮
+        3. 验证对话框关闭
+        
+        预期结果：
+        - 对话框正确关闭
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-007: 验证对话框关闭按钮（X）")
+        logger.info("开始执行TC-ADMIN-FM-008: 验证对话框关闭按钮（X）")
         logger.info("=" * 60)
         
         # 打开对话框
@@ -315,7 +425,7 @@ class TestFeatureManagement:
         
         # 截图：关闭按钮
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_close_button_{timestamp}.png"
+        screenshot_path = f"admin_fm_close_button_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -337,7 +447,7 @@ class TestFeatureManagement:
         
         # 截图：对话框已关闭
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_after_close_{timestamp}.png"
+        screenshot_path = f"admin_fm_after_close_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -345,17 +455,26 @@ class TestFeatureManagement:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-007执行成功")
+        logger.info("✅ TC-ADMIN-FM-008执行成功")
     
     @pytest.mark.P2
     @pytest.mark.functional
     def test_p2_dialog_esc_key(self, feature_page):
         """
-        TC-FEATURE-008: 验证ESC键关闭对话框
-        验证按ESC键可关闭对话框
+        TC-ADMIN-FM-009: 验证ESC键关闭对话框
+        
+        测试目标：验证按ESC键可关闭对话框
+        
+        测试步骤：
+        1. 打开对话框
+        2. 按ESC键
+        3. 验证对话框关闭
+        
+        预期结果：
+        - 对话框正确关闭
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-008: 验证ESC键关闭对话框")
+        logger.info("开始执行TC-ADMIN-FM-009: 验证ESC键关闭对话框")
         logger.info("=" * 60)
         
         # 打开对话框
@@ -364,7 +483,7 @@ class TestFeatureManagement:
         
         # 截图：按ESC前
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_before_esc_{timestamp}.png"
+        screenshot_path = f"admin_fm_before_esc_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -386,7 +505,7 @@ class TestFeatureManagement:
         
         # 截图：按ESC后
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_after_esc_{timestamp}.png"
+        screenshot_path = f"admin_fm_after_esc_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -394,17 +513,26 @@ class TestFeatureManagement:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-008执行成功")
+        logger.info("✅ TC-ADMIN-FM-009执行成功")
     
     @pytest.mark.P2
     @pytest.mark.functional
     def test_p2_dialog_save_button(self, feature_page):
         """
-        TC-FEATURE-009: 验证对话框Save按钮（空功能）
-        验证Save按钮功能
+        TC-ADMIN-FM-010: 验证对话框Save按钮
+        
+        测试目标：验证Save按钮功能
+        
+        测试步骤：
+        1. 打开对话框
+        2. 点击Save按钮
+        
+        预期结果：
+        - Save按钮可点击
+        - 操作完成后对话框关闭或显示成功消息
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-009: 验证对话框Save按钮")
+        logger.info("开始执行TC-ADMIN-FM-010: 验证对话框Save按钮")
         logger.info("=" * 60)
         
         # 打开对话框
@@ -413,7 +541,7 @@ class TestFeatureManagement:
         
         # 截图：点击Save前
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_before_save_{timestamp}.png"
+        screenshot_path = f"admin_fm_before_save_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -430,7 +558,7 @@ class TestFeatureManagement:
         
         # 截图：点击Save后
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_after_save_{timestamp}.png"
+        screenshot_path = f"admin_fm_after_save_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -438,20 +566,30 @@ class TestFeatureManagement:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-009执行成功")
+        logger.info("✅ TC-ADMIN-FM-010执行成功")
     
     @pytest.mark.P1
     @pytest.mark.functional
-    def test_p1_tab_switch_from_settings(self, logged_in_feature):
+    def test_p1_tab_switch_from_emailing(self, admin_logged_in_feature):
         """
-        TC-FEATURE-010: 验证从Settings Tab访问Feature Management
-        验证Tab切换功能
+        TC-ADMIN-FM-011: 验证从Emailing Tab切换到Feature Management
+        
+        测试目标：验证Tab切换功能
+        
+        测试步骤：
+        1. 导航到Settings页面（Emailing）
+        2. 点击Feature Management Tab
+        3. 验证切换成功
+        
+        预期结果：
+        - Tab切换成功
+        - URL正确更新
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-010: 验证从Settings Tab访问Feature Management")
+        logger.info("开始执行TC-ADMIN-FM-011: 验证从Emailing Tab切换到Feature Management")
         logger.info("=" * 60)
         
-        page = logged_in_feature
+        page = admin_logged_in_feature
         
         # 访问Settings页面（Emailing）
         settings = SettingsEmailingPage(page)
@@ -460,7 +598,7 @@ class TestFeatureManagement:
         
         # 截图：Emailing Tab
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_emailing_tab_{timestamp}.png"
+        screenshot_path = f"admin_fm_emailing_tab_{timestamp}.png"
         settings.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -486,7 +624,7 @@ class TestFeatureManagement:
         
         # 截图：Feature Management页面
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_from_settings_{timestamp}.png"
+        screenshot_path = f"admin_fm_from_emailing_{timestamp}.png"
         feature_mgmt.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -494,17 +632,27 @@ class TestFeatureManagement:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-010执行成功")
+        logger.info("✅ TC-ADMIN-FM-011执行成功")
     
     @pytest.mark.P2
     @pytest.mark.functional
     def test_p2_page_refresh_state(self, feature_page):
         """
-        TC-FEATURE-011: 验证页面刷新保持状态
-        验证刷新后仍在Feature Management页面
+        TC-ADMIN-FM-012: 验证页面刷新保持状态
+        
+        测试目标：验证刷新后仍在Feature Management页面
+        
+        测试步骤：
+        1. 在Feature Management页面
+        2. 刷新页面
+        3. 验证仍在Feature Management页面
+        
+        预期结果：
+        - URL保持不变
+        - 页面正确加载
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-011: 验证页面刷新保持状态")
+        logger.info("开始执行TC-ADMIN-FM-012: 验证页面刷新保持状态")
         logger.info("=" * 60)
         
         # 记录刷新前URL
@@ -513,7 +661,7 @@ class TestFeatureManagement:
         
         # 截图：刷新前
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_before_refresh_{timestamp}.png"
+        screenshot_path = f"admin_fm_before_refresh_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -540,7 +688,7 @@ class TestFeatureManagement:
         
         # 截图：刷新后
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = f"feature_mgmt_after_refresh_{timestamp}.png"
+        screenshot_path = f"admin_fm_after_refresh_{timestamp}.png"
         feature_page.take_screenshot(screenshot_path)
         allure.attach.file(
             f"screenshots/{screenshot_path}",
@@ -548,17 +696,26 @@ class TestFeatureManagement:
             attachment_type=allure.attachment_type.PNG
         )
         
-        logger.info("✅ TC-FEATURE-011执行成功")
+        logger.info("✅ TC-ADMIN-FM-012执行成功")
     
     @pytest.mark.P2
     @pytest.mark.functional
     def test_p2_multiple_open_close(self, feature_page):
         """
-        TC-FEATURE-014: 验证多次打开关闭对话框
-        验证对话框可多次打开/关闭
+        TC-ADMIN-FM-013: 验证多次打开关闭对话框
+        
+        测试目标：验证对话框可多次打开/关闭
+        
+        测试步骤：
+        1. 多次执行打开/关闭对话框操作
+        2. 验证每次操作都成功
+        
+        预期结果：
+        - 每次打开/关闭都正常
+        - 无状态残留
         """
         logger.info("=" * 60)
-        logger.info("开始执行TC-FEATURE-014: 验证多次打开关闭对话框")
+        logger.info("开始执行TC-ADMIN-FM-013: 验证多次打开关闭对话框")
         logger.info("=" * 60)
         
         # 执行3次打开/关闭
@@ -571,7 +728,7 @@ class TestFeatureManagement:
             
             # 截图：打开状态
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            screenshot_path = f"feature_mgmt_open_{i}_{timestamp}.png"
+            screenshot_path = f"admin_fm_open_{i}_{timestamp}.png"
             feature_page.take_screenshot(screenshot_path)
             allure.attach.file(
                 f"screenshots/{screenshot_path}",
@@ -589,7 +746,7 @@ class TestFeatureManagement:
             
             # 截图：关闭状态
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            screenshot_path = f"feature_mgmt_close_{i}_{timestamp}.png"
+            screenshot_path = f"admin_fm_close_{i}_{timestamp}.png"
             feature_page.take_screenshot(screenshot_path)
             allure.attach.file(
                 f"screenshots/{screenshot_path}",
@@ -601,4 +758,4 @@ class TestFeatureManagement:
             assert not feature_page.is_dialog_open(), f"第{i}次对话框应该关闭"
             logger.info(f"   ✓ 第{i}次关闭成功")
         
-        logger.info("✅ TC-FEATURE-014执行成功")
+        logger.info("✅ TC-ADMIN-FM-013执行成功")

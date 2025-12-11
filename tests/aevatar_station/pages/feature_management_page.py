@@ -20,23 +20,23 @@ class FeatureManagementPage(BasePage):
         self.FEATURE_MANAGEMENT_TAB = "button[role='tab']:has-text('Feature'), [role='tab']:has-text('Feature')"
         self.EMAILING_TAB = "button[role='tab']:has-text('Emailing'), [role='tab']:has-text('Emailing')"
         
-        # 页面主要元素
-        self.PAGE_DESCRIPTION = "text=You can click the button below to manage the host features"
+        # 页面主要元素 - 基于实际UI
+        self.PAGE_DESCRIPTION = "text=You can manage the host side features, p:has-text('host side features')"
         self.MANAGE_BUTTON = "button:has-text('Manage Host Features')"
         
-        # Features对话框元素
-        self.DIALOG = "[role='dialog'], .modal, .dialog"
-        self.DIALOG_TITLE = "h2:has-text('Features'), .modal-title:has-text('Features')"
-        self.DIALOG_BACKDROP = ".modal-backdrop, [role='dialog'] + div"
+        # Features对话框元素 - 基于实际UI
+        self.DIALOG = "[role='dialog']"
+        self.DIALOG_TITLE = "[role='dialog'] h2:has-text('Features')"
+        self.DIALOG_BACKDROP = "[role='dialog'] + div, .modal-backdrop"
         
-        # 对话框内容
+        # 对话框内容 - 基于实际UI
         self.EMPTY_STATE_MESSAGE = "text=There isn't any available feature"
         self.FEATURE_LIST = "[role='dialog'] ul, [role='dialog'] .feature-list"
         
-        # 对话框按钮
+        # 对话框按钮 - 基于实际UI
         self.SAVE_BUTTON = "[role='dialog'] button:has-text('Save')"
         self.CANCEL_BUTTON = "[role='dialog'] button:has-text('Cancel')"
-        self.CLOSE_BUTTON = "[role='dialog'] button[aria-label*='close' i], [role='dialog'] .close"
+        self.CLOSE_BUTTON = "[role='dialog'] button:has-text('Close')"
         
         # 功能开关（如果有Features）
         self.FEATURE_TOGGLE = "input[type='checkbox'][role='switch']"
@@ -169,20 +169,26 @@ class FeatureManagementPage(BasePage):
             raise
     
     def click_close_button(self):
-        """点击对话框关闭按钮（X）"""
+        """点击对话框关闭按钮"""
         logger.info("点击关闭按钮")
         try:
-            # 尝试多种关闭按钮选择器
+            # 优先使用Close文本按钮
+            if self.page.locator(self.CLOSE_BUTTON).is_visible(timeout=2000):
+                self.page.locator(self.CLOSE_BUTTON).first.click()
+                logger.info("关闭按钮已点击")
+                self.page.wait_for_timeout(1000)
+                return
+            
+            # 备选：尝试其他关闭按钮选择器
             close_selectors = [
                 "[role='dialog'] button[aria-label*='close' i]",
                 "[role='dialog'] .close",
-                "[role='dialog'] button.btn-close",
-                ".modal-header button[type='button']"
+                "[role='dialog'] button.btn-close"
             ]
             
             for selector in close_selectors:
                 try:
-                    if self.page.locator(selector).is_visible(timeout=2000):
+                    if self.page.locator(selector).is_visible(timeout=1000):
                         self.page.locator(selector).first.click()
                         logger.info(f"关闭按钮已点击（使用选择器: {selector}）")
                         self.page.wait_for_timeout(1000)

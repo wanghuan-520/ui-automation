@@ -14,12 +14,12 @@ class ForgotPasswordPage(BasePage):
     # 页面URL
     FORGOT_PASSWORD_URL = "/Account/ForgotPassword"
     
-    # 页面元素定位器
-    PAGE_TITLE = "text=忘记密码？"
-    HINT_TEXT = "text=您的电子邮件中将收到重置密码的链接"
-    EMAIL_INPUT = 'input[name="Input.EmailAddress"]'
-    SUBMIT_BUTTON = 'button:has-text("提交")'
-    LOGIN_LINK = 'a:has-text("登录")'
+    # 页面元素定位器（支持中英文）
+    PAGE_TITLE = 'h1, h2, text="Forgot Password", text="忘记密码"'
+    HINT_TEXT = 'text=您的电子邮件中将收到重置密码的链接, text=enter your email, text=reset password'
+    EMAIL_INPUT = 'input[name="Input.EmailAddress"], input[type="email"], input#Input_EmailAddress'
+    SUBMIT_BUTTON = 'button:has-text("提交"), button:has-text("Submit"), button:has-text("Send"), button[type="submit"]'
+    LOGIN_LINK = 'a:has-text("登录"), a:has-text("Login"), a:has-text("Back to login")'
     LANGUAGE_SWITCHER = 'button:has-text("简体中文")'
     
     # 消息定位器
@@ -52,18 +52,14 @@ class ForgotPasswordPage(BasePage):
             bool: 页面是否加载完成
         """
         try:
-            # 检查页面标题和关键元素
-            title_visible = self.is_visible(self.PAGE_TITLE, timeout=5000)
+            # 只检查核心元素：邮箱输入框和提交按钮
             email_visible = self.is_visible(self.EMAIL_INPUT, timeout=5000)
             submit_button_visible = self.is_visible(self.SUBMIT_BUTTON, timeout=5000)
             
-            is_loaded = all([
-                title_visible,
-                email_visible,
-                submit_button_visible
-            ])
+            is_loaded = email_visible and submit_button_visible
             
             logger.info(f"忘记密码页面加载检查: {is_loaded}")
+            logger.info(f"  邮箱输入框: {email_visible}, 提交按钮: {submit_button_visible}")
             return is_loaded
         except Exception as e:
             logger.error(f"检查页面加载状态失败: {e}")

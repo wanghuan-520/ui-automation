@@ -91,7 +91,7 @@
     {
       "username": "validuser",
       "email": "valid@test.com",
-      "password": "Test1!",
+      "password": "T1!",
       "expected_error": "密码长度不足",
       "description": "密码过短（少于8位）"
     },
@@ -212,7 +212,7 @@
     {
       "username": "testuser",
       "email": "test5@example.com",
-      "password": "Test1!",
+      "password": "T1!",
       "missing": "length",
       "expected_error_cn": "8",
       "expected_error_en": "8",
@@ -229,6 +229,30 @@
   ],
   "abp_username_validation": [
     {
+      "username": "",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "empty",
+      "expected_error": "必填",
+      "description": "ABP验证-用户名为空"
+    },
+    {
+      "username": "a",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "too_short",
+      "expected_error": "长度",
+      "description": "ABP验证-用户名过短（1位）"
+    },
+    {
+      "username": "ab",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "too_short",
+      "expected_error": "长度",
+      "description": "ABP验证-用户名边界（2位）"
+    },
+    {
       "username": "test user",
       "email": "test@example.com",
       "password": "ValidPass123!",
@@ -242,7 +266,39 @@
       "password": "ValidPass123!",
       "error_type": "special_char",
       "expected_error": "特殊字符",
-      "description": "ABP验证-用户名包含特殊字符"
+      "description": "ABP验证-用户名包含@符号"
+    },
+    {
+      "username": "test#user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "special_char",
+      "expected_error": "特殊字符",
+      "description": "ABP验证-用户名包含#符号"
+    },
+    {
+      "username": "test$user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "special_char",
+      "expected_error": "特殊字符",
+      "description": "ABP验证-用户名包含$符号"
+    },
+    {
+      "username": "test%user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "special_char",
+      "expected_error": "特殊字符",
+      "description": "ABP验证-用户名包含%符号"
+    },
+    {
+      "username": "test&user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "special_char",
+      "expected_error": "特殊字符",
+      "description": "ABP验证-用户名包含&符号"
     },
     {
       "username": "test_user",
@@ -259,6 +315,72 @@
       "error_type": "none",
       "expected_result": "success",
       "description": "ABP验证-有效用户名（连字符）"
+    },
+    {
+      "username": "test.user",
+      "email": "test@example.com",
+      "password": "ValidPass123!",
+      "error_type": "none",
+      "expected_result": "success",
+      "description": "ABP验证-有效用户名（点号）"
+    }
+  ],
+  "abp_email_validation": [
+    {
+      "username": "testuser",
+      "email": "",
+      "password": "ValidPass123!",
+      "error_type": "empty",
+      "expected_error": "必填",
+      "description": "ABP验证-邮箱为空"
+    },
+    {
+      "username": "testuser",
+      "email": "invalid-email",
+      "password": "ValidPass123!",
+      "error_type": "invalid_format",
+      "expected_error": "格式",
+      "description": "ABP验证-邮箱缺少@符号"
+    },
+    {
+      "username": "testuser",
+      "email": "test@",
+      "password": "ValidPass123!",
+      "error_type": "invalid_format",
+      "expected_error": "格式",
+      "description": "ABP验证-邮箱缺少域名"
+    },
+    {
+      "username": "testuser",
+      "email": "@example.com",
+      "password": "ValidPass123!",
+      "error_type": "invalid_format",
+      "expected_error": "格式",
+      "description": "ABP验证-邮箱缺少用户名部分"
+    },
+    {
+      "username": "testuser",
+      "email": "test@@example.com",
+      "password": "ValidPass123!",
+      "error_type": "invalid_format",
+      "expected_error": "格式",
+      "description": "ABP验证-邮箱包含双@符号"
+    },
+    {
+      "username": "testuser",
+      "email": "test..user@example.com",
+      "password": "ValidPass123!",
+      "error_type": "invalid_format",
+      "expected_error": "格式",
+      "description": "ABP验证-邮箱包含连续点号"
+    },
+    {
+      "username": "testuser",
+      "email": "test user@example.com",
+      "password": "ValidPass123!",
+      "error_type": "contains_space",
+      "expected_error": "空格",
+      "description": "ABP验证-邮箱包含空格"
     }
   ]
 }

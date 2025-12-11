@@ -171,3 +171,22 @@ pytest tests/aevatar_station/test_profile_personal_settings.py::TestProfile::tes
 - [测试账号管理优化方案](./test-account-management.md)
 - [并行测试执行指南](../test-cases/aevatar_station/parallel_testing.md)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

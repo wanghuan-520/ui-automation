@@ -156,3 +156,22 @@ USE_ACCOUNT_POOL=false pytest tests/aevatar_station/test_profile_personal_settin
 2. **账号池自动扩展**：账号池不足时自动注册并加入池中
 3. **数据库事务回滚**：使用数据库事务，测试结束后自动回滚（需要后端支持）
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

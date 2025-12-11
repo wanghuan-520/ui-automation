@@ -1,15 +1,28 @@
 {
-  "valid_login_data": [
+  "admin_login_data": [
     {
-      "username": "haylee13",
-      "email": "haylee13@example.com",
-      "password": "Wh520520!",
+      "username": "admin",
+      "password": "1q2w3E*",
       "remember_me": false
     },
     {
-      "username": "haylee13",
-      "email": "haylee13@example.com",
+      "username": "admin-test01",
       "password": "Wh520520!",
+      "remember_me": false,
+      "description": "管理员测试账号 - 用于管理页面测试"
+    }
+  ],
+  "valid_login_data": [
+    {
+      "username": "qatest_v3__040",
+      "email": "qatest_v3__040@testmail.com",
+      "password": "TestPass123!",
+      "remember_me": false
+    },
+    {
+      "username": "qatest_v3__047",
+      "email": "qatest_v3__047@testmail.com",
+      "password": "TestPass123!",
       "remember_me": true
     }
   ],

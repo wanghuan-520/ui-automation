@@ -35,8 +35,8 @@ def logged_in_dashboard(browser, test_data):
         landing_page.click_sign_in()
         login_page.wait_for_load()
         
-        valid_data = test_data["valid_login_data"][0]
-        logger.info(f"使用账号登录: {valid_data['username']}")
+        valid_data = test_data["admin_login_data"][0]
+        logger.info(f"使用Admin账号登录: {valid_data['username']}")
         
         # 使用正确的选择器填写表单
         page.fill("#LoginInput_UserNameOrEmailAddress", valid_data["username"])

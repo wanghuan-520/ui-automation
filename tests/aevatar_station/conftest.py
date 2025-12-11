@@ -18,6 +18,7 @@ def pytest_sessionstart(session):
     if not hasattr(session.config, 'workerinput'):
         import subprocess
         import sys
+        import time
         
         # 定位脚本路径：tests/aevatar_station/conftest.py -> aevatar_station -> tests -> root
         root_dir = Path(__file__).parent.parent.parent
@@ -25,11 +26,17 @@ def pytest_sessionstart(session):
         
         if script_path.exists():
             try:
-                subprocess.run([sys.executable, str(script_path)], check=True)
+                # 使用 timeout 参数防止 subprocess 永久卡死
+                logger.info("⚡ [HyperEcho] 开始账号池清洗...")
+                # 增加超时保护，防止无限等待
+                subprocess.run([sys.executable, str(script_path)], check=True, timeout=60)
+                logger.info("✨ [HyperEcho] 账号池清洗完成")
+            except subprocess.TimeoutExpired:
+                logger.error("⚠️ [HyperEcho] 账号池清洗超时 (60s)，跳过清洗步骤")
             except Exception as e:
-                print(f"⚠️ [HyperEcho] 账号池清洗失败: {e}")
+                logger.error(f"⚠️ [HyperEcho] 账号池清洗失败: {e}")
         else:
-            print(f"⚠️ [HyperEcho] 未找到清洗脚本: {script_path}")
+            logger.warning(f"⚠️ [HyperEcho] 未找到清洗脚本: {script_path}")
 
 # 配置日志
 logging.basicConfig(
@@ -43,47 +50,26 @@ logger = logging.getLogger(__name__)
 def browser_context_args(browser_context_args):
     """
     配置浏览器上下文参数
-    忽略HTTPS错误（用于localhost自签名证书）
-    ⚡ 性能优化：减小viewport尺寸以提升性能
-    ⚡ 并行执行优化：添加超时和重试配置
     """
     return {
         **browser_context_args,
         "ignore_https_errors": True,
-        "viewport": {"width": 1280, "height": 720},  # ⚡ 性能优化：减小分辨率（1920x1080 → 1280x720）
-        "screen": {"width": 1280, "height": 720},  # ⚡ 性能优化：同步屏幕尺寸
+        "viewport": {"width": 1280, "height": 720},
     }
 
 
 @pytest.fixture(scope="session")
 def browser_type_launch_args(browser_type_launch_args):
     """
-    配置浏览器启动参数
-    添加参数以解决 SSL 证书和浏览器崩溃问题
-    ⚡ 性能优化：已启用headless模式和性能优化参数
-    ⚡ 并行执行优化：添加稳定性参数，减少浏览器崩溃
+    配置浏览器启动参数 - 极简模式，使用默认配置，只加必要的证书忽略
     """
     return {
         **browser_type_launch_args,
-        "headless": True,  # ⚡ 性能优化：启用headless模式
-        "timeout": 60000,  # ⚡ 并行执行优化：增加浏览器启动超时（60秒）
+        "headless": True,
         "args": [
-            "--disable-web-security",  # 禁用 Web 安全策略
-            "--ignore-certificate-errors",  # 忽略证书错误
-            "--allow-insecure-localhost",  # 允许不安全的 localhost
-            "--disable-gpu",  # 禁用 GPU（避免某些崩溃）
-            "--disable-dev-shm-usage",  # 避免共享内存问题
-            "--no-sandbox",  # 禁用沙箱
-            "--disable-setuid-sandbox",  # 禁用 setuid 沙箱
-            # ⚡ 并行执行优化：添加稳定性参数
-            "--disable-background-networking",  # 禁用后台网络请求
-            "--disable-background-timer-throttling",  # 禁用后台定时器节流
-            "--disable-renderer-backgrounding",  # 禁用渲染器后台化
-            "--disable-backgrounding-occluded-windows",  # 禁用被遮挡窗口的后台化
-            "--disable-ipc-flooding-protection",  # 禁用IPC洪水保护
-            "--disable-popup-blocking", # 禁用弹窗拦截
-            "--disable-notifications", # 禁用通知
-            "--disable-infobars", # 禁用信息栏
+            "--ignore-certificate-errors",
+            "--no-sandbox",
+            "--disable-dev-shm-usage", # 在容器或资源受限环境通常需要
         ],
     }
 
@@ -235,6 +221,10 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "data: 数据一致性测试")
     config.addinivalue_line("markers", "ui: UI测试")
     config.addinivalue_line("markers", "usability: 可用性测试")
+    config.addinivalue_line("markers", "admin: 管理员功能测试")
+    config.addinivalue_line("markers", "users: 用户管理测试")
+    config.addinivalue_line("markers", "roles: 角色管理测试")
+    config.addinivalue_line("markers", "emailing: 邮件配置测试")
     config.addinivalue_line("markers", "P0: 优先级P0")
     config.addinivalue_line("markers", "P1: 优先级P1")
     config.addinivalue_line("markers", "P2: 优先级P2")

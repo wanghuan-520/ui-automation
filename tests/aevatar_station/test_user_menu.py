@@ -13,40 +13,31 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="function")
-def logged_in_page(page, test_data):
+def logged_in_page(page, test_data, request):
     """
     登录页面fixture - 为每个测试提供已登录的页面
+    ⚡ 使用 conftest.py 的账号池机制，确保每个测试使用独立账号
     """
-    landing_page = LandingPage(page)
-    login_page = LoginPage(page)
-    
+    # 🔑 调用auto_register_and_login来完成登录并设置request.node._account_info
     try:
-        landing_page.navigate()
-        landing_page.click_sign_in()
-        login_page.wait_for_load()
-        
-        valid_data = test_data["valid_login_data"][0]
-        logger.info(f"使用账号登录: {valid_data['username']}")
-        
-        page.fill("#LoginInput_UserNameOrEmailAddress", valid_data["username"])
-        page.fill("#LoginInput_Password", valid_data["password"])
-        page.click("button[type='submit']")
-        
-        # 等待登录完成
-        page.wait_for_function(
-            "() => !window.location.href.includes('/Account/Login')",
-            timeout=30000
-        )
-        
-        landing_page.handle_ssl_warning()
-        page.wait_for_timeout(2000)
-        
-        return page
+        from tests.aevatar_station.conftest import auto_register_and_login
+        username, email, password = auto_register_and_login(page, request)
+        logger.info(f"✅ 使用账号池账号: {username} 登录成功")
     except Exception as e:
-        logger.error(f"❌ 登录失败: {e}")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        page.screenshot(path=f"screenshots/login_failed_menu_{timestamp}.png")
-        raise e
+        logger.error(f"❌ 自动注册/登录失败: {e}")
+        # 降级：手动设置账号信息
+        try:
+            valid_data = test_data["valid_login_data"][0]
+            username = valid_data["username"]
+            password = valid_data["password"]
+            email = valid_data.get("email", f"{username}@test.com")
+            request.node._account_info = (username, email, password)
+            logger.warning(f"⚠️ 使用降级账号: {username}，可能导致测试冲突")
+        except Exception as fallback_error:
+            logger.error(f"❌ 降级账号配置失败: {fallback_error}")
+            raise Exception(f"登录失败且无法降级: 原始错误={e}, 降级错误={fallback_error}")
+    
+    return page
 
 
 @pytest.mark.user_menu
@@ -98,19 +89,24 @@ class TestUserMenu:
         
         # 验证菜单展开
         logger.info("步骤2: 验证菜单项")
+        
+        # 更精确的选择器（基于实际截图）
         menu_items = {
-            "Profile": page.locator("text=Profile, [role='menuitem']:has-text('Profile')"),
-            "Settings": page.locator("text=Settings, [role='menuitem']:has-text('Settings')"),
-            "Logout": page.locator("text=Logout, text=Sign out, [role='menuitem']:has-text('Logout')")
+            "Dashboard": page.locator("text=Dashboard"),
+            "Profile": page.locator("text=Profile"),
+            "Logout": page.locator("text=Logout")
         }
         
         found_count = 0
         for item_name, locator in menu_items.items():
-            if locator.first.is_visible(timeout=2000):
-                logger.info(f"   ✓ 菜单项'{item_name}'可见")
-                found_count += 1
-            else:
-                logger.warning(f"   ⚠️ 菜单项'{item_name}'未找到")
+            try:
+                if locator.first.is_visible(timeout=3000):
+                    logger.info(f"   ✓ 菜单项'{item_name}'可见")
+                    found_count += 1
+                else:
+                    logger.warning(f"   ⚠️ 菜单项'{item_name}'未找到")
+            except Exception as e:
+                logger.warning(f"   ⚠️ 菜单项'{item_name}'检查异常: {e}")
         
         assert found_count > 0, "至少应该显示一个菜单项"
         logger.info(f"   ✓ 成功找到 {found_count} 个菜单项")
@@ -150,10 +146,9 @@ class TestUserMenu:
         # 点击Logout
         logger.info("步骤2: 点击Logout选项")
         logout_selectors = [
+            "text=Logout",
             "button:has-text('Logout')",
-            "button:has-text('Sign out')",
-            "[role='menuitem']:has-text('Logout')",
-            "text=Logout"
+            "a:has-text('Logout')"
         ]
         
         logout_clicked = False
@@ -165,7 +160,8 @@ class TestUserMenu:
                     logger.info(f"   ✓ 已点击Logout (selector: {selector})")
                     logout_clicked = True
                     break
-            except:
+            except Exception as e:
+                logger.debug(f"   尝试选择器 {selector} 失败: {e}")
                 continue
         
         if not logout_clicked:

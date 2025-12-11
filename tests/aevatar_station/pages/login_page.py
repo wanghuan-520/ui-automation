@@ -34,8 +34,16 @@ class LoginPage(BasePage):
         """检查页面是否加载完成"""
         return self.is_visible(self.PAGE_HEADING) or self.is_visible(self.LOGIN_BUTTON)
     
-    def login(self, username, password, remember_me=False):
-        """执行登录操作"""
+    def login(self, username, password, remember_me=False, expect_success=True):
+        """
+        执行登录操作
+        
+        Args:
+            username: 用户名或邮箱
+            password: 密码
+            remember_me: 是否勾选"记住我"
+            expect_success: 是否期望登录成功（True=等待跳转，False=仅提交表单）
+        """
         logger.info(f"登录用户: {username}")
         
         # 填写用户名
@@ -51,7 +59,14 @@ class LoginPage(BasePage):
         # 点击登录按钮
         self.click_element(self.LOGIN_BUTTON)
         
-        # 等待登录完成（URL 不再包含 /Account/Login）
+        # 如果不期望成功（测试失败场景），只等待一小段时间让服务器响应
+        if not expect_success:
+            logger.info("提交登录表单（不期望成功）...")
+            self.page.wait_for_timeout(2000)
+            logger.info(f"表单已提交，当前URL: {self.page.url}")
+            return
+        
+        # 期望成功的情况：等待登录完成（URL 不再包含 /Account/Login）
         logger.info("等待登录完成...")
         try:
             # 等待URL变化，最多30秒

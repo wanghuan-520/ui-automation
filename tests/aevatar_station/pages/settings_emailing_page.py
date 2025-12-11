@@ -16,24 +16,26 @@ class SettingsEmailingPage(BasePage):
         super().__init__(page)
         self.page_url = "/admin/settings"
         
-        # Tab导航元素
-        self.EMAILING_TAB = "button[role='tab']:has-text('Emailing'), [role='tab']:has-text('Emailing')"
-        self.FEATURE_MANAGEMENT_TAB = "button[role='tab']:has-text('Feature'), [role='tab']:has-text('Feature')"
+        # Tab导航元素 - 基于实际UI
+        self.EMAILING_TAB = "[role='tab']:has-text('Emailing')"
+        self.FEATURE_MANAGEMENT_TAB = "[role='tab']:has-text('Feature')"
         
-        # 表单字段元素
-        self.DISPLAY_NAME_INPUT = "input[name='defaultFromDisplayName'], input[placeholder*='display name' i]"
-        self.FROM_ADDRESS_INPUT = "input[name='defaultFromAddress'], input[placeholder*='from address' i]"
-        self.HOST_INPUT = "input[name='host'], input[placeholder*='host' i]"
-        self.PORT_INPUT = "input[name='port'], input[type='number']"
+        # 表单字段元素 - 使用role和aria-label的组合
+        self.DISPLAY_NAME_INPUT = "[role='textbox'][aria-label='Default from display name'], input[placeholder*='display name' i]"
+        self.FROM_ADDRESS_INPUT = "[role='textbox'][aria-label='Default from address'], input[placeholder*='from address' i]"
+        self.HOST_INPUT = "[role='textbox'][aria-label='Host'], input[aria-label='Host']"
+        self.PORT_INPUT = "[role='spinbutton'], input[type='number']"
         
-        # Checkbox元素
-        self.ENABLE_SSL_CHECKBOX = "input[type='checkbox'][name*='ssl' i], input[type='checkbox'] >> nth=0"
-        self.USE_DEFAULT_CREDENTIALS_CHECKBOX = "input[type='checkbox'][name*='credential' i], input[type='checkbox'] >> nth=1"
+        # Checkbox元素 - 使用aria-label的checkbox
+        self.ENABLE_SSL_LABEL = "text=Enable ssl"
+        self.ENABLE_SSL_CHECKBOX = "[role='checkbox'][aria-label='Enable ssl']"
+        self.USE_DEFAULT_CREDENTIALS_LABEL = "text=Use default credentials"
+        self.USE_DEFAULT_CREDENTIALS_CHECKBOX = "[role='checkbox'][aria-label='Use default credentials']"
         
         # 认证字段元素
-        self.DOMAIN_INPUT = "input[name='domain'], input[placeholder*='domain' i]"
-        self.USERNAME_INPUT = "input[name='userName'], input[placeholder*='user name' i]:not([type='checkbox'])"
-        self.PASSWORD_INPUT = "input[name='password'], input[type='password']"
+        self.DOMAIN_INPUT = "[role='textbox'][aria-label='Domain'], input[aria-label='Domain']"
+        self.USERNAME_INPUT = "[role='textbox'][aria-label='User name'], input[aria-label='User name']"
+        self.PASSWORD_INPUT = "[role='textbox'][aria-label='Password'], input[type='password']"
         
         # 保存按钮（可能没有，自动保存）
         self.SAVE_BUTTON = "button:has-text('Save'), button[type='submit']"
@@ -53,8 +55,9 @@ class SettingsEmailingPage(BasePage):
     def is_loaded(self) -> bool:
         """检查页面是否加载完成"""
         try:
+            # 等待Tab和标题加载
             self.page.wait_for_selector(self.EMAILING_TAB, timeout=10000)
-            self.page.wait_for_selector(self.HOST_INPUT, timeout=10000)
+            self.page.wait_for_selector("h3:has-text('Emailing'), h1:has-text('Emailing')", timeout=10000)
             logger.info("Settings Emailing页面加载完成")
             return True
         except Exception as e:
@@ -74,57 +77,63 @@ class SettingsEmailingPage(BasePage):
         self.page.wait_for_timeout(1000)
     
     def fill_display_name(self, value: str):
-        """填写Display Name"""
+        """填写Display Name - 使用getByRole"""
         logger.info(f"填写Display Name: {value}")
-        self.page.locator(self.DISPLAY_NAME_INPUT).first.fill(value)
+        self.page.get_by_role("textbox", name="Default from display name").fill(value)
     
     def fill_from_address(self, value: str):
-        """填写From Address"""
+        """填写From Address - 使用getByRole"""
         logger.info(f"填写From Address: {value}")
-        self.page.locator(self.FROM_ADDRESS_INPUT).first.fill(value)
+        self.page.get_by_role("textbox", name="Default from address").fill(value)
     
     def fill_host(self, value: str):
-        """填写Host"""
+        """填写Host - 使用getByRole"""
         logger.info(f"填写Host: {value}")
-        self.page.locator(self.HOST_INPUT).first.fill(value)
+        self.page.get_by_role("textbox", name="Host").fill(value)
     
     def fill_port(self, value: int):
-        """填写Port"""
+        """填写Port - 使用getByRole spinbutton"""
         logger.info(f"填写Port: {value}")
-        self.page.locator(self.PORT_INPUT).first.fill(str(value))
+        self.page.get_by_role("spinbutton").fill(str(value))
     
     def set_enable_ssl(self, enable: bool):
-        """设置Enable SSL"""
+        """设置Enable SSL - 使用getByRole"""
         logger.info(f"设置Enable SSL: {enable}")
-        checkbox = self.page.locator(self.ENABLE_SSL_CHECKBOX).first
-        if enable:
-            checkbox.check()
-        else:
-            checkbox.uncheck()
+        try:
+            checkbox = self.page.get_by_role("checkbox", name="Enable ssl")
+            current_checked = checkbox.is_checked()
+            if current_checked != enable:
+                checkbox.click()
+                self.page.wait_for_timeout(500)
+        except Exception as e:
+            logger.error(f"设置SSL失败: {e}")
     
     def set_use_default_credentials(self, enable: bool):
-        """设置Use Default Credentials"""
+        """设置Use Default Credentials - 使用getByRole"""
         logger.info(f"设置Use Default Credentials: {enable}")
-        checkbox = self.page.locator(self.USE_DEFAULT_CREDENTIALS_CHECKBOX).first
-        if enable:
-            checkbox.check()
-        else:
-            checkbox.uncheck()
+        try:
+            checkbox = self.page.get_by_role("checkbox", name="Use default credentials")
+            current_checked = checkbox.is_checked()
+            if current_checked != enable:
+                checkbox.click()
+                self.page.wait_for_timeout(500)
+        except Exception as e:
+            logger.error(f"设置默认凭据失败: {e}")
     
     def fill_domain(self, value: str):
-        """填写Domain"""
+        """填写Domain - 使用getByRole"""
         logger.info(f"填写Domain: {value}")
-        self.page.locator(self.DOMAIN_INPUT).first.fill(value)
+        self.page.get_by_role("textbox", name="Domain").fill(value)
     
     def fill_username(self, value: str):
-        """填写Username"""
+        """填写Username - 使用getByRole"""
         logger.info(f"填写Username: {value}")
-        self.page.locator(self.USERNAME_INPUT).first.fill(value)
+        self.page.get_by_role("textbox", name="User name").fill(value)
     
     def fill_password(self, value: str):
-        """填写Password"""
+        """填写Password - 使用getByRole"""
         logger.info(f"填写Password: {value}")
-        self.page.locator(self.PASSWORD_INPUT).first.fill(value)
+        self.page.get_by_role("textbox", name="Password").fill(value)
     
     def click_save(self):
         """点击保存按钮"""
@@ -196,7 +205,7 @@ class SettingsEmailingPage(BasePage):
     def get_display_name_value(self) -> str:
         """获取Display Name值"""
         try:
-            value = self.page.locator(self.DISPLAY_NAME_INPUT).first.input_value()
+            value = self.page.get_by_role("textbox", name="Default from display name").input_value()
             return value
         except Exception as e:
             logger.error(f"获取Display Name失败: {e}")
@@ -205,7 +214,7 @@ class SettingsEmailingPage(BasePage):
     def get_from_address_value(self) -> str:
         """获取From Address值"""
         try:
-            value = self.page.locator(self.FROM_ADDRESS_INPUT).first.input_value()
+            value = self.page.get_by_role("textbox", name="Default from address").input_value()
             return value
         except Exception as e:
             logger.error(f"获取From Address失败: {e}")
@@ -214,7 +223,7 @@ class SettingsEmailingPage(BasePage):
     def get_host_value(self) -> str:
         """获取Host值"""
         try:
-            value = self.page.locator(self.HOST_INPUT).first.input_value()
+            value = self.page.get_by_role("textbox", name="Host").input_value()
             return value
         except Exception as e:
             logger.error(f"获取Host失败: {e}")
@@ -223,7 +232,7 @@ class SettingsEmailingPage(BasePage):
     def get_port_value(self) -> int:
         """获取Port值"""
         try:
-            value = self.page.locator(self.PORT_INPUT).first.input_value()
+            value = self.page.get_by_role("spinbutton").input_value()
             return int(value) if value else 0
         except Exception as e:
             logger.error(f"获取Port失败: {e}")
@@ -232,7 +241,7 @@ class SettingsEmailingPage(BasePage):
     def is_ssl_enabled(self) -> bool:
         """检查SSL是否启用"""
         try:
-            is_checked = self.page.locator(self.ENABLE_SSL_CHECKBOX).first.is_checked()
+            is_checked = self.page.get_by_role("checkbox", name="Enable ssl").is_checked()
             return is_checked
         except Exception as e:
             logger.error(f"检查SSL状态失败: {e}")
@@ -241,7 +250,7 @@ class SettingsEmailingPage(BasePage):
     def is_default_credentials_enabled(self) -> bool:
         """检查默认凭据是否启用"""
         try:
-            is_checked = self.page.locator(self.USE_DEFAULT_CREDENTIALS_CHECKBOX).first.is_checked()
+            is_checked = self.page.get_by_role("checkbox", name="Use default credentials").is_checked()
             return is_checked
         except Exception as e:
             logger.error(f"检查默认凭据状态失败: {e}")
@@ -250,7 +259,7 @@ class SettingsEmailingPage(BasePage):
     def get_username_value(self) -> str:
         """获取Username值"""
         try:
-            value = self.page.locator(self.USERNAME_INPUT).first.input_value()
+            value = self.page.get_by_role("textbox", name="User name").input_value()
             return value
         except Exception as e:
             logger.error(f"获取Username失败: {e}")

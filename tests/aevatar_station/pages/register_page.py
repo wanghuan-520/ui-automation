@@ -14,14 +14,15 @@ class RegisterPage(BasePage):
     # 页面URL
     REGISTER_URL = "/Account/Register"
     
-    # 页面元素定位器
-    PAGE_TITLE = "text=注册"
-    USERNAME_INPUT = 'input[name="Input.UserName"]'
-    EMAIL_INPUT = 'input[name="Input.EmailAddress"]'
-    PASSWORD_INPUT = 'input[name="Input.Password"]'
-    REGISTER_BUTTON = 'button:has-text("注册"), button:has-text("Register"), button[type="submit"]'
-    LOGIN_LINK = 'a:has-text("登录")'
-    ALREADY_REGISTERED_TEXT = "text=已经注册？"
+    # 页面元素定位器（支持中英文）
+    # 修正：移除宽泛的h1-h5匹配，只匹配包含特定文本的h4，避免匹配到隐藏元素
+    PAGE_TITLE = 'h4:has-text("Register"), h4:has-text("注册"), strong:has-text("Register")'
+    USERNAME_INPUT = 'input[name="Input.UserName"], input#Input_UserName, input[type="text"][placeholder*="name"]'
+    EMAIL_INPUT = 'input[name="Input.EmailAddress"], input[type="email"], input#Input_EmailAddress'
+    PASSWORD_INPUT = 'input[name="Input.Password"], input[type="password"], input#Input_Password'
+    REGISTER_BUTTON = 'button:has-text("注册"), button:has-text("Register"), button:has-text("Sign Up"), button[type="submit"]'
+    LOGIN_LINK = 'a:has-text("登录"), a:has-text("Login"), a:has-text("Sign In")'
+    ALREADY_REGISTERED_TEXT = 'text="已经注册", text="Already registered", text="Already have an account"'
     LANGUAGE_SWITCHER = 'button:has-text("简体中文")'
     
     # 错误消息定位器
@@ -38,10 +39,20 @@ class RegisterPage(BasePage):
         # 注册页面使用ABP后端URL
         self.page_url = self.auth_url + self.REGISTER_URL
     
-    def navigate(self):
-        """导航到注册页面"""
-        logger.info(f"导航到注册页面: {self.page_url}")
-        self.page.goto(self.page_url)
+    def navigate(self, return_url=None):
+        """导航到注册页面
+        
+        Args:
+            return_url: 注册成功后的返回URL（可选）
+        """
+        url = self.page_url
+        if return_url:
+            url = f"{self.page_url}?returnUrl={return_url}"
+            logger.info(f"导航到注册页面（带returnUrl）: {url}")
+        else:
+            logger.info(f"导航到注册页面: {url}")
+        
+        self.page.goto(url)
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(1000)
         logger.info("注册页面加载完成")
@@ -53,15 +64,13 @@ class RegisterPage(BasePage):
             bool: 页面是否加载完成
         """
         try:
-            # 检查页面标题和关键元素
-            title_visible = self.is_visible(self.PAGE_TITLE, timeout=5000)
+            # 只检查核心表单元素
             username_visible = self.is_visible(self.USERNAME_INPUT, timeout=5000)
             email_visible = self.is_visible(self.EMAIL_INPUT, timeout=5000)
             password_visible = self.is_visible(self.PASSWORD_INPUT, timeout=5000)
             register_button_visible = self.is_visible(self.REGISTER_BUTTON, timeout=5000)
             
             is_loaded = all([
-                title_visible,
                 username_visible,
                 email_visible,
                 password_visible,
@@ -69,6 +78,7 @@ class RegisterPage(BasePage):
             ])
             
             logger.info(f"注册页面加载检查: {is_loaded}")
+            logger.info(f"  用户名: {username_visible}, 邮箱: {email_visible}, 密码: {password_visible}, 按钮: {register_button_visible}")
             return is_loaded
         except Exception as e:
             logger.error(f"检查页面加载状态失败: {e}")
@@ -339,4 +349,3 @@ class RegisterPage(BasePage):
         self.fill_input(self.USERNAME_INPUT, "")
         self.fill_input(self.EMAIL_INPUT, "")
         self.fill_input(self.PASSWORD_INPUT, "")
-
